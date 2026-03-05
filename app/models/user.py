@@ -4,7 +4,7 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 import uuid
 
-Base = declarative_base()
+from app.models.base import Base
 
 
 class User(Base):
@@ -23,6 +23,7 @@ class User(Base):
     birth_date = Column(Date, nullable=True)
 
     is_active = Column(Boolean, default=True)
+    is_system = Column(Boolean, default=False)
 
     created_at = Column(
         TIMESTAMP(timezone=True),

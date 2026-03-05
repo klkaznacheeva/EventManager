@@ -1,6 +1,6 @@
 ### Инструкция по разворачиванию
 1. Выполнить команду (docker-compose up -d --build)
-2. Накатить миграции [create_evnet_manager_tables.sql](migrations/create_evnet_manager_tables.sql)
+2. Накатить миграции [1_create_evnet_manager_tables.sql](migrations/1_create_evnet_manager_tables.sql)
 
 ### Список команд
 1. Команда `docker-composer up -d --build` - поднять контейнеры
