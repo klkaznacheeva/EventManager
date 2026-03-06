@@ -1,6 +1,9 @@
 import uuid
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Enum
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from app.core.enum import EventStatus
 from app.models.base import Base
 
 
@@ -21,4 +24,15 @@ class Event(Base):
 
     organizer_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
-    status = Column(String(50), default="draft")
+    status = Column(Enum(EventStatus), default=EventStatus.draft)
+
+    # связь с категорией
+    category = relationship("Category", back_populates="events")
+    # связь с организацией
+    organizer = relationship("User")
+    # связь с событиями
+    sessions = relationship(
+        "Session",
+        back_populates="event",
+        cascade="all, delete-orphan"
+    )

@@ -1,6 +1,9 @@
 import uuid
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Enum
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from app.core.enum import EventStatus
 from app.models.base import Base
 
 
@@ -23,4 +26,7 @@ class Session(Base):
 
     age_limit = Column(Integer)
 
-    status = Column(String(50), default="draft")
+    status = Column(Enum(EventStatus), default=EventStatus.draft)
+
+    # ОБРАТНАЯ СВЯЗЬ
+    event = relationship("Event", back_populates="sessions")

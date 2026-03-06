@@ -66,7 +66,7 @@ CREATE TABLE sessions (
     type VARCHAR(100),
     responsible_id UUID REFERENCES users(id),
     status VARCHAR(50) DEFAULT 'draft',
-    min_age INT,
+    age_limit INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE
 );
@@ -87,6 +87,7 @@ CREATE TABLE tasks (
     entity_id UUID NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
+    status  BOOLEAN DEFAULT FALSE,
     deadline TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

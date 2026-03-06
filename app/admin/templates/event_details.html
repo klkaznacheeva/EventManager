@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали мероприятия</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .session { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .session button { margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Детали мероприятия</h1>
+
+    {% if obj %}
+        <h2>{{ obj.title }}</h2>
+        <p><strong>Категория:</strong> {{ obj.category.name if obj.category else "-" }}</p>
+        <p><strong>Локация:</strong> {{ obj.location or "-" }}</p>
+        <p><strong>Дата начала:</strong> {{ obj.start_date }}</p>
+        <p><strong>Дата окончания:</strong> {{ obj.end_date }}</p>
+        <p><strong>Статус:</strong> {{ obj.status }}</p>
+
+        <hr>
+        <h3>События</h3>
+
+        {% if sessions and sessions|length > 0 %}
+            {% for session in sessions %}
+                <div class="session">
+                    <strong>{{ session.title }}</strong> ({{ session.start_date }} - {{ session.end_date }})
+                    <br>
+                    Локация: {{ session.location or "-" }}
+                    <br>
+                    Тип: {{ session.type or "-" }}
+                    <br>
+                    Статус: {{ session.status }}
+                    <br>
+                    <a href="/admin/session/edit/{{ session.id }}">
+                        <button>Редактировать событие</button>
+                    </a>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>Событий пока нет.</p>
+        {% endif %}
+    {% else %}
+        <p>Мероприятие не найдено.</p>
+    {% endif %}
+</body>
+</html>
