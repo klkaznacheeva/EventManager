@@ -24,7 +24,7 @@ class Event(Base):
 
     organizer_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
-    status = Column(Enum(EventStatus), default=EventStatus.draft)
+    status = Column(Enum(EventStatus), default=EventStatus.draft, nullable=False)
 
     # связь с категорией
     category = relationship("Category", back_populates="events")
@@ -34,5 +34,6 @@ class Event(Base):
     sessions = relationship(
         "Session",
         back_populates="event",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        lazy="selectin"
     )

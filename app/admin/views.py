@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import async_session
 from sqlalchemy.orm import selectinload
 from wtforms import Form, PasswordField, StringField, BooleanField, DateField
 
+from app.core.enum import EventStatus, SessionStatus, EventStatusMap
 from app.models import Event, Session, Category
 from app.models.user import User
 from app.core.security import hash_password
@@ -77,7 +78,6 @@ class EventAdmin(ModelView, model=Event):
     icon = "fa-solid fa-calendar"
 
     details_template = "event_details.html"
-    details_template_mode = "custom"
 
     form_excluded_columns = ["sessions", "created_at", "updated_at"]
 
@@ -110,19 +110,34 @@ class EventAdmin(ModelView, model=Event):
     ]
 
     form_ajax_refs = {
-        "category": {
-            "fields": ["name"],  # показываем имя категории
-        }
+        "category": {"fields": ["name"]}
     }
 
-    async def get_details_context(self, request, obj):
-        """Возвращаем объект и его сессии для шаблона"""
-        sessions = getattr(obj, "sessions", [])
-        return {
-            "view": self,
-            "obj": obj,
-            "sessions": sessions or []
-        }
+    async def details(self, request, pk):
+
+        async with self.session_maker() as session:
+
+            result = await session.execute(
+                select(Event)
+                .options(selectinload(Event.sessions))
+                .where(Event.id == pk)
+            )
+
+            obj = result.scalar_one_or_none()
+
+            context = {
+                "model": obj,
+                "view": self,
+                "request": request,
+                "status_labels": EventStatusMap.EVENT_STATUS_LABELS,
+                "session_status_labels": EventStatusMap.SESSION_STATUS_LABELS
+            }
+
+            return self.templates.TemplateResponse(
+                request,
+                self.details_template,
+                context
+            )
 
 # ===== События =====
 class SessionAdmin(ModelView, model=Session):
@@ -152,6 +167,12 @@ class SessionAdmin(ModelView, model=Session):
     column_filters = [
         Session.event
     ]
+
+    form_ajax_refs = {
+        "event": {
+            "fields": ["title"]
+        }
+    }
 
 # ===== Категории =====
 class CategoryAdmin(ModelView, model=Category):

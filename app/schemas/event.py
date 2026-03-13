@@ -13,8 +13,8 @@ class SessionResponse(BaseModel):
     id: UUID
     title: str
     description: Optional[str]
-    start_at: datetime
-    end_at: datetime
+    start_date: datetime
+    end_date: datetime
 
     class Config:
         from_attributes = True
