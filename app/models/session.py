@@ -28,7 +28,7 @@ class Session(Base):
 
     age_limit = Column(Integer)
 
-    status = Column(Enum(SessionStatus), default=SessionStatus.draft, nullable=False)
+    status = Column(Enum(SessionStatus), default=SessionStatus.DRAFT, nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow())
     updated_at = Column(DateTime(timezone=True))

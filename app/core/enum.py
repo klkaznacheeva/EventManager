@@ -1,51 +1,56 @@
 # ===== Статусы для Event =====
+from typing import List
+
+from pydantic import BaseModel
+
 import enum
 
 
 class EventStatus(str, enum.Enum):
-    draft = "draft"
-    pending = "pending"
-    reviewed = "reviewed"
-    published = "published"
-    needs_edit = "needs_edit"
-    completed = "completed"
+    DRAFT = "draft"
+    PENDING = "pending"
+    REVIEWED = "reviewed"
+    PUBLISHED = "published"
+    NEEDS_EDIT = "needs_edit"
+    COMPLETED = "completed"
 
 
 # ===== Статусы для Session =====
 class SessionStatus(str, enum.Enum):
-    draft = "draft"
-    pending = "pending"
-    reviewed = "reviewed"
-    published = "published"
-    completed = "completed"
+    DRAFT = "draft"
+    PENDING = "pending"
+    REVIEWED = "reviewed"
+    PUBLISHED = "published"
+    COMPLETED = "completed"
 
 
 class EventStatusMap:
     # ===== Локализация статусов =====
     EVENT_STATUS_LABELS = {
-        EventStatus.draft: "Черновик",
-        EventStatus.pending: "На проверке",
-        EventStatus.reviewed: "Проверено",
-        EventStatus.published: "Опубликовано",
-        EventStatus.needs_edit: "Требует редактирования",
-        EventStatus.completed: "Завершено",
+        EventStatus.DRAFT: "Черновик",
+        EventStatus.PENDING: "На проверке",
+        EventStatus.REVIEWED: "Проверено",
+        EventStatus.PUBLISHED: "Опубликовано",
+        EventStatus.NEEDS_EDIT: "Требует редактирования",
+        EventStatus.COMPLETED: "Завершено",
     }
 
+
+class SessionStatusMap:
     SESSION_STATUS_LABELS = {
-        SessionStatus.draft: "Черновик",
-        SessionStatus.pending: "На проверке",
-        SessionStatus.reviewed: "Проверено",
-        SessionStatus.published: "Опубликовано",
-        SessionStatus.completed: "Завершено",
+        SessionStatus.DRAFT: "Черновик",
+        SessionStatus.PENDING: "На проверке",
+        SessionStatus.REVIEWED: "Проверено",
+        SessionStatus.PUBLISHED: "Опубликовано",
+        SessionStatus.COMPLETED: "Завершено",
     }
 
 
-    # ===== Цвета для UI =====
-    STATUS_COLORS = {
-        "draft": "gray",
-        "pending": "orange",
-        "reviewed": "blue",
-        "published": "green",
-        "needs_edit": "red",
-        "completed": "purple",
-    }
+# Response schemas
+class EnumItemResponse(BaseModel):
+    value: str
+    label: str
+
+
+class EnumListResponse(BaseModel):
+    items: List[EnumItemResponse]
