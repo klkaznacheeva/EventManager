@@ -1,5 +1,5 @@
 # app/core/jwt_dependency.py
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional
 from jose import JWTError
@@ -12,44 +12,46 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> Optional[User]:
     """
-    Получает текущего пользователя из токена.
-    Если токен не предоставлен - возвращает None
-    Если токен невалидный - выбрасывает 401
+    Получает текущего пользователя:
+    - из Authorization header
+    - или из cookie
     """
-    if not credentials:
-        return None
 
-    token = credentials.credentials
+    token = None
+
+    # 1. Пытаемся взять из Authorization header
+    if credentials:
+        token = credentials.credentials
+
+    # 2. Если нет — берем из cookie
+    if not token:
+        token = request.cookies.get("access_token")
+
+    if not token:
+        return None
 
     try:
         payload = decode_token(token)
         user_id: str = payload.get("sub")
+
         if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            raise HTTPException(status_code=401, detail="Invalid token")
+
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     db = SessionLocal()
     try:
         user_repo = UserRepository(db)
         user = user_repo.get_by_id(user_id)
+
         if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            raise HTTPException(status_code=401, detail="User not found")
+
         return user
     finally:
         db.close()

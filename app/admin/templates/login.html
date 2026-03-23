@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Login</h2>
+
+<input id="email" type="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+
+<p id="error" style="color:red;"></p>
+
+<script>
+async function login() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    const response = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            email: email,
+            password: password
+        })
+    });
+
+    if (!response.ok) {
+        document.getElementById("error").innerText = "Неверный логин или пароль";
+        return;
+    }
+
+    const data = await response.json();
+
+    // сохраняем токен
+    document.cookie = `access_token=${data.access_token}; path=/`;
+
+    // редирект
+    window.location.href = "/admin/dashboard";
+}
+</script>
+{% endblock %}

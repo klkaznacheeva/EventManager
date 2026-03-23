@@ -24,7 +24,7 @@ class Event(Base):
 
     organizer_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
-    status = Column(Enum(EventStatus), default=EventStatus.DRAFT, nullable=False)
+    status = Column(String, default=EventStatus.DRAFT.value, nullable=False)
 
     # связь с категорией
     category = relationship("Category", back_populates="events")

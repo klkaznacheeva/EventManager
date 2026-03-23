@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Панель мероприятий</h2>
+<p>Привет, {{ user_name }} ({{ user_role }})</p>
+
+{% if user_role == "Organizer" %}
+<button id="create-event-btn">Создать новое мероприятие</button>
+{% endif %}
+
+<table border="1" cellpadding="5" cellspacing="0" id="events-table">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Описание</th>
+            <th>Дата начала</th>
+            <th>Дата окончания</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Сюда будем подгружать события через JS -->
+    </tbody>
+</table>
+
+<script>
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+async function loadProfile() {
+    const token = getCookie("access_token");
+    if (!token) {
+        alert("Вы не авторизованы!");
+        return null;
+    }
+
+    const res = await fetch("/api/v1/auth/profile", {
+        headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (!res.ok) {
+        alert("Ошибка получения профиля");
+        return null;
+    }
+
+    return await res.json();
+}
+
+async function loadEvents() {
+    const token = getCookie("access_token");
+    if (!token) return;
+
+    // получаем профиль
+    const profile = await loadProfile();
+    if (!profile) return;
+
+    const userRole = profile.is_system ? "admin" : "organizer";
+
+    // подгружаем мероприятия
+    const res = await fetch("/api/v1/events?page=1&limit=100", {
+        headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (!res.ok) {
+        alert("Ошибка получения мероприятий");
+        return;
+    }
+
+    const data = await res.json();
+
+    const tbody = document.querySelector("#events-table tbody");
+    tbody.innerHTML = "";
+
+    data.items.forEach(event => {
+        const tr = document.createElement("tr");
+
+        let actionsHtml = `<button onclick="alert('Просмотр деталей ${event.title}')">Детали</button>`;
+
+        if (userRole === "admin") {
+            actionsHtml += `
+                <button onclick="alert('Принять ${event.title}')">Принять</button>
+                <button onclick="alert('Отклонить ${event.title}')">Отклонить</button>`;
+        } else if (userRole === "organizer") {
+            actionsHtml += `
+                <button onclick="alert('Редактировать ${event.title}')">Редактировать</button>
+                <button onclick="alert('Удалить ${event.title}')">Удалить</button>`;
+        }
+
+        tr.innerHTML = `
+            <td>${event.title}</td>
+            <td>${event.description || ''}</td>
+            <td>${new Date(event.start_date).toLocaleString()}</td>
+            <td>${new Date(event.end_date).toLocaleString()}</td>
+            <td>${event.status}</td>
+            <td>${actionsHtml}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (document.querySelector("#events-table")) {
+        loadEvents();
+    }
+});
+</script>
+{% endblock %}

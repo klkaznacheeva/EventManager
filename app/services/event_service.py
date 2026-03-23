@@ -5,6 +5,8 @@ from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException, status
 
+from app.core.enum import RoleList
+from app.models import Role
 from app.models.event import Event
 from app.models.category import Category
 from app.models.user import User
@@ -173,13 +175,27 @@ class EventService:
             data: EventListRequest,
             user_id: Optional[UUID] = None
     ) -> EventListResponse:
-        """Получение списка мероприятий с фильтрацией"""
+        """Получение списка мероприятий с фильтрацией и с учётом роли пользователя"""
+
         query = db.query(Event).options(
             joinedload(Event.category),
             joinedload(Event.organizer)
         )
 
-        # Фильтры
+        # --- Определяем роль пользователя ---
+        print(f"USER_ID: {user_id}")
+        if user_id:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and not user.is_system:
+                # Если пользователь не админ — показываем только мероприятия, где он организатор
+                organizer_role_id = db.query(Role.id).filter(Role.name == RoleList.organizer.value).scalar()
+                print(f"organizer_role_id: {organizer_role_id}")
+                query = query.join(EventParticipant).filter(
+                    EventParticipant.user_id == user_id,
+                    EventParticipant.role_id == organizer_role_id
+                )
+
+        # --- Фильтры ---
         if data.category_id:
             query = query.filter(Event.category_id == data.category_id)
 
@@ -202,25 +218,23 @@ class EventService:
         if data.start_to:
             query = query.filter(Event.start_date <= data.start_to)
 
-        # Сортировка по дате начала (ближайшие первыми)
+        # Сортировка по дате начала
         query = query.order_by(Event.start_date.asc())
 
-        # Подсчет общего количества
+        # Подсчёт общего количества для пагинации
         total = query.count()
 
         # Пагинация
         events = query.offset((data.page - 1) * data.limit).limit(data.limit).all()
 
-        # Добавляем дополнительную информацию для каждого события
+        # Добавляем дополнительные поля
         result_items = []
         for event in events:
-            # Получаем количество участников
             participants_count = db.query(EventParticipant).filter(
                 EventParticipant.event_id == event.id
             ).count()
             event.participants_count = participants_count
 
-            # Проверяем, участвует ли пользователь
             if user_id:
                 is_participant = db.query(EventParticipant).filter(
                     EventParticipant.event_id == event.id,

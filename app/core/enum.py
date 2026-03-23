@@ -54,3 +54,9 @@ class EnumItemResponse(BaseModel):
 
 class EnumListResponse(BaseModel):
     items: List[EnumItemResponse]
+
+class RoleList(str, enum.Enum):
+    admin = "admin"
+    organizer = "organizer"
+    coordinator = "coordinator"
+    user = "user"
