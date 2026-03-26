@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.core.jwt_dependency import get_required_user
@@ -30,3 +30,8 @@ def get_profile(current_user: User = Depends(get_required_user)):
         email=current_user.email,
         is_system=current_user.is_system
     )
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie("access_token")
+    return {"message": "Logged out"}

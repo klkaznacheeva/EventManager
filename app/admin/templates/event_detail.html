@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 id="event-title">Загрузка...</h1>
+
+<div id="event-info">
+    <p><strong>Категория:</strong> <span id="event-category"></span></p>
+    <p><strong>Описание:</strong> <span id="event-description"></span></p>
+    <p><strong>Дата:</strong> <span id="event-dates"></span></p>
+    <p><strong>Местоположение:</strong> <span id="event-location"></span></p>
+    <p><strong>Статус:</strong> <span id="event-status"></span></p>
+    <p><strong>Организатор:</strong> <span id="event-organizer"></span></p>
+</div>
+
+<hr>
+
+<h2>Сессии</h2>
+<ul id="event-sessions">
+    <li>Загрузка...</li>
+</ul>
+
+<a href="/admin/dashboard">Назад к списку мероприятий</a>
+
+<script>
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+async function loadEvent(eventId) {
+    const token = getCookie("access_token");
+    if (!token) {
+        alert("Вы не авторизованы!");
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/v1/events/${eventId}`, {
+            headers: { "Authorization": "Bearer " + token }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка получения мероприятия");
+            return;
+        }
+
+        const event = await res.json();
+
+        document.getElementById("event-title").innerText = event.title;
+        document.getElementById("event-category").innerText = event.category?.name || "Не указана";
+        document.getElementById("event-description").innerText = event.description || "-";
+        document.getElementById("event-dates").innerText =
+            `${new Date(event.start_date).toLocaleString()} — ${new Date(event.end_date).toLocaleString()}`;
+        document.getElementById("event-location").innerText = event.location || "-";
+        document.getElementById("event-status").innerText = event.status_label || event.status;
+        document.getElementById("event-organizer").innerText =
+            `${event.organizer.first_name} ${event.organizer.last_name || ""}`;
+
+        const sessionsList = document.getElementById("event-sessions");
+        sessionsList.innerHTML = "";
+        if (event.sessions && event.sessions.length > 0) {
+            event.sessions.forEach(session => {
+                const li = document.createElement("li");
+                li.innerText = `${session.title} — ${new Date(session.start_date).toLocaleString()} — ${new Date(session.end_date).toLocaleString()}${session.location ? " (" + session.location + ")" : ""}${session.status ? " [" + session.status + "]" : ""}`;
+                sessionsList.appendChild(li);
+            });
+        } else {
+            sessionsList.innerHTML = "<li>Сессий пока нет.</li>";
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Произошла ошибка при загрузке мероприятия");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const eventId = "{{ event_id }}"; // Jinja2 вставляет id мероприятия
+    loadEvent(eventId);
+});
+</script>
+{% endblock %}

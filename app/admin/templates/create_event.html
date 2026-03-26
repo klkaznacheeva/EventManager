@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Создание мероприятия</h2>
+
+<form id="create-event-form">
+    <input type="text" id="title" placeholder="Название" required><br>
+
+    <textarea id="description" placeholder="Описание"></textarea><br>
+
+    <select id="category_id" required>
+        <option value="">Выберите категорию</option>
+    </select><br>
+
+    <input type="datetime-local" id="start_date" required><br>
+    <input type="datetime-local" id="end_date" required><br>
+
+    <input type="text" id="location" placeholder="Локация"><br>
+
+    <button type="submit">Создать</button>
+</form>
+<p id="error" style="color:red;"></p>
+
+<script>
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    async function loadCategories() {
+        const select = document.getElementById("category_id");
+
+        try {
+            const response = await fetch("/api/v1/enums/categories");
+            const data = await response.json();
+
+            // очищаем старые options кроме "Выберите категорию"
+            select.querySelectorAll("option:not([value=''])").forEach(o => o.remove());
+
+            // добавляем новые
+            data.items.forEach(cat => {
+                const option = document.createElement("option");
+                option.value = cat.value;    // <- строго value из ответа
+                option.textContent = cat.label; // <- строго label
+                select.appendChild(option);
+            });
+        } catch (err) {
+            console.error("Ошибка при загрузке категорий:", err);
+        }
+    }
+
+    // 🔥 создание события
+    document.getElementById("create-event-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const token = getCookie("access_token");
+
+        const payload = {
+            title: document.getElementById("title").value,
+            description: document.getElementById("description").value,
+            category_id: document.getElementById("category_id").value,
+            start_date: new Date(document.getElementById("start_date").value).toISOString(),
+            end_date: new Date(document.getElementById("end_date").value).toISOString(),
+            location: document.getElementById("location").value
+        };
+
+        const res = await fetch("/api/v1/events/", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            document.getElementById("error").innerText = "Ошибка создания";
+            return;
+        }
+
+        window.location.href = "/admin/dashboard";
+    });
+
+    // ждем, пока DOM загрузится
+    document.addEventListener("DOMContentLoaded", loadCategories);
+</script>
+{% endblock %}

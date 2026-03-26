@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import UUID
 from enum import Enum
 
-from app.core.enum import EventStatus
+from app.core.enum import EventStatus, EventStatusMap
 
 
 # Request schemas
@@ -73,6 +73,7 @@ class EventResponse(BaseModel):
     location: Optional[str]
     organizer: Optional[OrganizerResponse]
     status: EventStatus
+    status_label: Optional[str] = None
     participants_count: int = 0
     is_participant: bool = False
     created_at: datetime

@@ -5,7 +5,7 @@ from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from app.core.enum import RoleList
+from app.core.enum import RoleList, EventStatusMap
 from app.models import Role
 from app.models.event import Event
 from app.models.category import Category
@@ -171,31 +171,26 @@ class EventService:
 
     @staticmethod
     def get_events_list(
-            db: Session,
+            db,
             data: EventListRequest,
             user_id: Optional[UUID] = None
     ) -> EventListResponse:
-        """Получение списка мероприятий с фильтрацией и с учётом роли пользователя"""
+        """Получение списка мероприятий с фильтрацией и учетом роли пользователя"""
 
+        # Базовый запрос с загрузкой категорий и организатора
         query = db.query(Event).options(
             joinedload(Event.category),
             joinedload(Event.organizer)
         )
 
-        # --- Определяем роль пользователя ---
-        print(f"USER_ID: {user_id}")
+        # --- Фильтрация по роли ---
         if user_id:
             user = db.query(User).filter(User.id == user_id).first()
             if user and not user.is_system:
-                # Если пользователь не админ — показываем только мероприятия, где он организатор
-                organizer_role_id = db.query(Role.id).filter(Role.name == RoleList.organizer.value).scalar()
-                print(f"organizer_role_id: {organizer_role_id}")
-                query = query.join(EventParticipant).filter(
-                    EventParticipant.user_id == user_id,
-                    EventParticipant.role_id == organizer_role_id
-                )
+                # если пользователь не админ — только свои мероприятия
+                query = query.filter(Event.organizer_id == user_id)
 
-        # --- Фильтры ---
+        # --- Применяем фильтры ---
         if data.category_id:
             query = query.filter(Event.category_id == data.category_id)
 
@@ -218,29 +213,31 @@ class EventService:
         if data.start_to:
             query = query.filter(Event.start_date <= data.start_to)
 
-        # Сортировка по дате начала
+        # --- Сортировка ---
         query = query.order_by(Event.start_date.asc())
 
-        # Подсчёт общего количества для пагинации
+        # --- Пагинация ---
         total = query.count()
-
-        # Пагинация
         events = query.offset((data.page - 1) * data.limit).limit(data.limit).all()
 
-        # Добавляем дополнительные поля
+        # --- Формируем ответ ---
         result_items = []
         for event in events:
+            # Кол-во участников
             participants_count = db.query(EventParticipant).filter(
                 EventParticipant.event_id == event.id
             ).count()
             event.participants_count = participants_count
 
+            # Проверяем, участвует ли текущий пользователь
+            event.is_participant = False
             if user_id:
-                is_participant = db.query(EventParticipant).filter(
+                event.is_participant = db.query(EventParticipant).filter(
                     EventParticipant.event_id == event.id,
                     EventParticipant.user_id == user_id
                 ).first() is not None
-                event.is_participant = is_participant
+
+            event.status_label = EventStatusMap.EVENT_STATUS_LABELS.get(event.status, event.status)
 
             result_items.append(event)
 

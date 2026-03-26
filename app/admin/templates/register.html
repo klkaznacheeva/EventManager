@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Регистрация</h2>
+
+<form id="register-form">
+    <input type="text" id="first_name" placeholder="Имя" required><br>
+    <input type="text" id="second_name" placeholder="Отчество"><br>
+    <input type="text" id="last_name" placeholder="Фамилия"><br>
+
+    <input type="email" id="email" placeholder="Email" required><br>
+    <input type="password" id="password" placeholder="Пароль" required><br>
+
+    <input type="text" id="phone" placeholder="Телефон"><br>
+    <input type="date" id="birth_date"><br>
+
+    <button type="submit">Зарегистрироваться</button>
+</form>
+
+<p id="error" style="color:red;"></p>
+
+<p>
+    Уже есть аккаунт? <a href="/admin/login">Войти</a>
+</p>
+
+<script>
+document.getElementById("register-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const payload = {
+        first_name: document.getElementById("first_name").value,
+        second_name: document.getElementById("second_name").value,
+        last_name: document.getElementById("last_name").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        phone: document.getElementById("phone").value,
+        birth_date: document.getElementById("birth_date").value || null
+    };
+
+    const res = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        document.getElementById("error").innerText = "Ошибка регистрации";
+        return;
+    }
+
+    const data = await res.json();
+
+    document.cookie = `access_token=${data.access_token}; path=/`;
+
+    window.location.href = "/admin/dashboard";
+});
+</script>
+
+{% endblock %}
