@@ -1,4 +1,3 @@
-# ===== Статусы для Event =====
 from typing import List
 
 from pydantic import BaseModel
@@ -14,8 +13,6 @@ class EventStatus(str, enum.Enum):
     NEEDS_EDIT = "needs_edit"
     COMPLETED = "completed"
 
-
-# ===== Статусы для Session =====
 class SessionStatus(str, enum.Enum):
     DRAFT = "draft"
     PENDING = "pending"
@@ -25,7 +22,6 @@ class SessionStatus(str, enum.Enum):
 
 
 class EventStatusMap:
-    # ===== Локализация статусов =====
     EVENT_STATUS_LABELS = {
         EventStatus.DRAFT: "Черновик",
         EventStatus.PENDING: "На проверке",
@@ -46,11 +42,9 @@ class SessionStatusMap:
     }
 
 
-# Response schemas
 class EnumItemResponse(BaseModel):
     value: str
     label: str
-
 
 class EnumListResponse(BaseModel):
     items: List[EnumItemResponse]

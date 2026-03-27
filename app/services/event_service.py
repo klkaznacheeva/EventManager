@@ -5,8 +5,8 @@ from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from app.core.enum import RoleList, EventStatusMap
-from app.models import Role
+from app.core.enum import RoleList, EventStatusMap, SessionStatusMap
+from app.models import Role, Event
 from app.models.event import Event
 from app.models.category import Category
 from app.models.user import User
@@ -51,7 +51,23 @@ class EventService:
 
         db.add(event)
         db.commit()
+
         db.refresh(event)
+
+        # получаем роль organizer
+        organizer_role_id = db.query(Role.id).filter(
+            Role.name == RoleList.organizer.value
+        ).scalar()
+
+        # создаем связь
+        event_participant = EventParticipant(
+            event_id=event.id,
+            user_id=user_id,
+            role_id=organizer_role_id
+        )
+
+        db.add(event_participant)
+        db.commit()
 
         return event
 
@@ -60,7 +76,7 @@ class EventService:
             db: Session,
             event_id: UUID,
             user_id: Optional[UUID] = None
-    ) -> Event:
+    ) -> type[Event]:
         """Получение мероприятия по ID с дополнительной информацией"""
         query = db.query(Event).options(
             joinedload(Event.category),
@@ -89,6 +105,14 @@ class EventService:
                 EventParticipant.user_id == user_id
             ).first() is not None
             event.is_participant = is_participant
+
+        event.status_label = EventStatusMap.EVENT_STATUS_LABELS.get(event.status, event.status)
+
+        for session in event.sessions:
+            session.status_label = SessionStatusMap.SESSION_STATUS_LABELS.get(
+                session.status,
+                session.status
+            )
 
         return event
 

@@ -45,3 +45,14 @@ def event_detail_page(
     }
 
     return templates.TemplateResponse("event_detail.html", context)
+
+@router.get("/events/{event_id}/sessions/create", response_class=HTMLResponse)
+def create_session_page(
+    event_id: UUID,
+    request: Request,
+    user=Depends(get_required_user)
+):
+    return templates.TemplateResponse("create_session.html", {
+        "request": request,
+        "event_id": str(event_id)
+    })
