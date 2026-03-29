@@ -1,7 +1,15 @@
-import os
-from fastapi.templating import Jinja2Templates
+# app/core/templates.py
+from jinja2 import Environment, FileSystemLoader
+from fastapi.responses import HTMLResponse
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATES_DIR = os.path.join(BASE_DIR, "admin", "templates")
+# Создаем окружение
+env = Environment(
+    loader=FileSystemLoader("/app/app/admin/templates"),
+    autoescape=True
+)
 
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
+def render_template(template_name: str, context: dict) -> HTMLResponse:
+    """Рендерит шаблон и возвращает HTMLResponse"""
+    template = env.get_template(template_name)
+    content = template.render(**context)
+    return HTMLResponse(content=content)
