@@ -5,6 +5,7 @@ from starlette.responses import RedirectResponse, JSONResponse
 from app.api.v1.auth import router as auth_router
 from app.api.v1.event import router as event_router
 from app.api.v1.enum import router as enum_router
+from app.api.v1.session import router as session_router
 from app.admin.router import router as admin_router
 from app.core.security import decode_token
 
@@ -14,6 +15,7 @@ app.include_router(auth_router)
 app.include_router(event_router)
 app.include_router(enum_router)
 app.include_router(admin_router)
+app.include_router(session_router)
 
 @app.exception_handler(HTTPException)
 async def auth_exception_handler(request: Request, exc: HTTPException):

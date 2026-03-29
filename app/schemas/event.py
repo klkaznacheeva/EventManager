@@ -58,6 +58,7 @@ class SessionResponse(BaseModel):
     location: Optional[str]
     type: Optional[str]
     status: Optional[str]
+    status_label: Optional[str] = None
 
     class Config:
         from_attributes = True

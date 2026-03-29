@@ -1,11 +1,3 @@
-# app/core/templates.py
-from pathlib import Path
-from fastapi.templating import Jinja2Templates
-
-# Абсолютный путь внутри контейнера
-templates_dir = Path("/app/app/admin/templates")
-templates = Jinja2Templates(directory=str(templates_dir))
-
 # app/admin/router.py
 from uuid import UUID
 
@@ -73,3 +65,14 @@ def event_detail_page(
         import traceback
         error_text = f"Error: {str(e)}\n\n{traceback.format_exc()}"
         return PlainTextResponse(error_text, status_code=500)
+
+@router.get("/events/{event_id}/sessions/create", response_class=HTMLResponse)
+def create_session_page(
+    event_id: UUID,
+    request: Request,
+    user=Depends(get_required_user)
+):
+    return templates.TemplateResponse("create_session.html", {
+        "request": request,
+        "event_id": str(event_id)
+    })
