@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Профиль</h2>
+
+<div>
+    <p><b>Имя:</b> <span id="first_name"></span></p>
+    <p><b>Фамилия:</b> <span id="last_name"></span></p>
+    <p><b>Отчество:</b> <span id="second_name"></span></p>
+    <p><b>Email:</b> <span id="email"></span></p>
+    <p><b>Номер телефона:</b> <span id="phone"></span></p>
+    <p><b>Дата рождения:</b> <span id="birth_date"></span></p>
+</div>
+
+<hr>
+
+<h3>Аватар</h3>
+<img id="avatar" src="" width="150" style="display:none;"/>
+<br><br>
+<input type="file" id="avatar_input">
+<button onclick="uploadAvatar()">Загрузить</button>
+
+<hr>
+
+<h3>Смена пароля</h3>
+<input type="password" id="old_password" placeholder="Старый пароль"><br><br>
+<input type="password" id="new_password" placeholder="Новый пароль"><br><br>
+<button onclick="changePassword()">Сменить пароль</button>
+
+<script>
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    async function loadProfile() {
+        const token = getCookie("access_token");
+
+        const res = await fetch("/api/v1/users/profile", {
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка загрузки профиля");
+            return;
+        }
+
+        const data = await res.json();
+
+        document.getElementById("first_name").innerText = data.first_name;
+        document.getElementById("last_name").innerText = data.last_name || "";
+        document.getElementById("second_name").innerText = data.second_name || "";
+        document.getElementById("email").innerText = data.email;
+        document.getElementById("phone").innerText = data.phone;
+        document.getElementById("birth_date").innerText = data.birth_date;
+
+        if (data.avatar_url) {
+            const avatar = document.getElementById("avatar");
+            avatar.src = data.avatar_url;
+            avatar.style.display = "block";
+        }
+    }
+
+    async function uploadAvatar() {
+        const fileInput = document.getElementById("avatar_input");
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("Выберите файл");
+            return;
+        }
+
+        const token = getCookie("access_token");
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/api/v1/users/upload-avatar", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            },
+            body: formData
+        });
+
+        if (!res.ok) {
+            alert("Ошибка загрузки");
+            return;
+        }
+
+        alert("Аватар загружен");
+        loadProfile();
+    }
+
+    async function changePassword() {
+        const oldPassword = document.getElementById("old_password").value;
+        const newPassword = document.getElementById("new_password").value;
+
+        const token = getCookie("access_token");
+
+        const res = await fetch("/api/v1/users/change-password", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify({
+                old_password: oldPassword,
+                new_password: newPassword
+            })
+        });
+
+        if (!res.ok) {
+            alert("Ошибка смены пароля");
+            return;
+        }
+
+        alert("Пароль успешно изменен");
+
+        document.getElementById("old_password").value = '';
+        document.getElementById("new_password").value = '';
+    }
+
+    document.addEventListener("DOMContentLoaded", loadProfile);
+</script>
+
+{% endblock %}

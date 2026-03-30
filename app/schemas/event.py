@@ -1,5 +1,6 @@
 # app/schemas/event.py
 from typing import Optional, List
+
 from pydantic import BaseModel, Field
 from datetime import datetime
 from uuid import UUID
@@ -102,3 +103,6 @@ class EventListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+class NeedsEditRequest(BaseModel):
+    reason: str

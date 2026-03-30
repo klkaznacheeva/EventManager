@@ -4,6 +4,7 @@
 <h2>Панель мероприятий</h2>
 <p>Привет, {{ user_name }} ({{ user_role }})</p>
 
+<button onclick="goToProfile()">Профиль</button>
 <button onclick="logout()">Выйти</button>
 <button onclick="goToCreateEvent()">Создать мероприятие</button>
 
@@ -42,7 +43,7 @@
             return null;
         }
 
-        const res = await fetch("/api/v1/auth/profile", {
+        const res = await fetch("/api/v1/users/profile", {
             headers: {"Authorization": "Bearer " + token}
         });
 
@@ -124,6 +125,10 @@
 
     function goToCreateEvent() {
         window.location.href = "/admin/events/create";
+    }
+
+    function goToProfile() {
+        window.location.href = "/admin/profile";
     }
 </script>
 {% endblock %}

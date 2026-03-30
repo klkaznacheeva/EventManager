@@ -75,3 +75,11 @@ def create_session_page(
         "request": request,
         "event_id": str(event_id)
     })
+
+@router.get("/profile", response_class=HTMLResponse)
+def profile_page(request: Request, user=Depends(get_required_user)):
+    context = {
+        "request": request,
+        "user_name": f"{user.first_name} {user.last_name}"
+    }
+    return render_template("profile.html", context)

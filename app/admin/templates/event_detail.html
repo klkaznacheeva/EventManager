@@ -20,8 +20,27 @@
 <ul id="event-sessions">
     <li>Загрузка...</li>
 </ul>
+
+<!-- Блок кнопок для админа -->
+<div id="admin-actions" style="display:none; margin-top:20px;">
+    <button onclick="markReviewed()">Проверено</button>
+    <button onclick="showNeedsEditPopup()">Требует редактирования</button>
+</div>
+
+<!-- Попап для ввода причины -->
+<div id="needs-edit-popup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+     background:white; padding:20px; border:1px solid #ccc; z-index:100;">
+    <h3>Укажите причину редактирования</h3>
+    <textarea id="edit-reason" rows="4" cols="50"></textarea><br><br>
+    <button onclick="submitNeedsEdit()">Отправить</button>
+    <button onclick="hideNeedsEditPopup()">Отмена</button>
+</div>
+
 <a href="/admin/dashboard">Назад к списку мероприятий</a>
+
 <script>
+    const userRole = "{{ user_role }}";  // admin или organizer
+
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
@@ -31,16 +50,12 @@
 
     async function loadEvent(eventId) {
         const token = getCookie("access_token");
-        if (!token) {
-            alert("Вы не авторизованы!");
-            return;
-        }
+        if (!token) return;
 
         try {
             const res = await fetch(`/api/v1/events/${eventId}`, {
                 headers: {"Authorization": "Bearer " + token}
             });
-
             if (!res.ok) {
                 alert("Ошибка получения мероприятия");
                 return;
@@ -70,19 +85,81 @@
                 sessionsList.innerHTML = "<li>Сессий пока нет.</li>";
             }
 
+            // Показ кнопок админа
+            if (event.status === "draft" && userRole === "admin") {
+                document.getElementById("admin-actions").style.display = "block";
+            }
+
         } catch (err) {
             console.error(err);
             alert("Произошла ошибка при загрузке мероприятия");
         }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        const eventId = "{{ event_id }}"; // Jinja2 вставляет id мероприятия
-        loadEvent(eventId);
-    });
+    // --- Кнопки админа ---
+    async function markReviewed() {
+        const token = getCookie("access_token");
+        const eventId = "{{ event_id }}";
 
+        const res = await fetch(`/api/v1/events/${eventId}/reviewed`, {
+            method: "POST",
+            headers: {"Authorization": "Bearer " + token}
+        });
+
+        if (!res.ok) {
+            alert("Ошибка при обновлении статуса");
+            return;
+        }
+
+        alert("Мероприятие помечено как 'Проверено'");
+        loadEvent(eventId);
+    }
+
+    function showNeedsEditPopup() {
+        document.getElementById("needs-edit-popup").style.display = "block";
+    }
+
+    function hideNeedsEditPopup() {
+        document.getElementById("needs-edit-popup").style.display = "none";
+    }
+
+    async function submitNeedsEdit() {
+        const token = getCookie("access_token");
+        const eventId = "{{ event_id }}";
+        const reason = document.getElementById("edit-reason").value.trim();
+
+        if (!reason) {
+            alert("Введите причину");
+            return;
+        }
+
+        const res = await fetch(`/api/v1/events/${eventId}/needs-edit`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({reason: reason})
+        });
+
+        if (!res.ok) {
+            alert("Ошибка при отправке сообщения");
+            return;
+        }
+
+        alert("Причина отправлена организатору");
+        hideNeedsEditPopup();
+        loadEvent(eventId);
+    }
+
+    // --- Создание сессии ---
     function goToCreateSession() {
         window.location.href = `/admin/events/{{ event_id }}/sessions/create`;
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const eventId = "{{ event_id }}";
+        loadEvent(eventId);
+    });
 </script>
 {% endblock %}

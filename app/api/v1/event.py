@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from uuid import UUID
 
+from app.core.enum import EventStatus
 from app.core.jwt_dependency import get_required_user, get_current_user
 from app.db.database import get_db
 from app.models.user import User
@@ -12,8 +13,9 @@ from app.schemas.event import (
     EventUpdateRequest,
     EventListRequest,
     EventResponse,
-    EventListResponse
+    EventListResponse, NeedsEditRequest
 )
+from app.services.entity_message_service import EntityMessageService
 from app.services.event_service import EventService
 from starlette.responses import JSONResponse
 
@@ -103,3 +105,45 @@ def list_events(
     user_id = current_user.id if current_user else None
     result = EventService.get_events_list(db, request, user_id)
     return result
+
+@router.post("/{event_id}/reviewed")
+def mark_event_reviewed(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    if not current_user.is_system:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    event = EventService.get_event_by_id(db, event_id)
+    event.status = EventStatus.REVIEWED.value
+    db.commit()
+
+    return {"detail": "Event marked as reviewed"}
+
+
+@router.post("/{event_id}/needs-edit")
+def mark_event_needs_edit(
+    event_id: UUID,
+    payload: NeedsEditRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    if not current_user.is_system:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    event = EventService.get_event_by_id(db, event_id)
+    event.status = EventStatus.NEEDS_EDIT.value
+    db.commit()
+
+    # создаем запись в entity_messages с типом review
+    EntityMessageService.create_message(
+        db=db,
+        entity_type="event",
+        entity_id=event_id,
+        type="review",
+        message=payload.reason,
+        author_id=current_user.id
+    )
+
+    return {"detail": "Event marked as needs edit"}

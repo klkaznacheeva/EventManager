@@ -41,6 +41,16 @@ class SessionStatusMap:
         SessionStatus.COMPLETED: "Завершено",
     }
 
+class EntityType:
+    USER = "user"
+    EVENT = "event"
+    SESSION = "session"
+
+
+class AttachmentType:
+    AVATAR = "avatar"
+    EVENT_COVER = "event_cover"
+    SESSION_FILE = "session_file"
 
 class EnumItemResponse(BaseModel):
     value: str
