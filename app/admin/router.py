@@ -25,7 +25,6 @@ def register_page(request: Request):
         error_text = f"Error: {str(e)}\n\n{traceback.format_exc()}"
         return PlainTextResponse(error_text, status_code=500)
 
-
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, user=Depends(get_required_user)):
     try:
@@ -72,7 +71,7 @@ def create_session_page(
     request: Request,
     user=Depends(get_required_user)
 ):
-    return templates.TemplateResponse("create_session.html", {
+    return render_template("create_session.html", {
         "request": request,
         "event_id": str(event_id)
     })

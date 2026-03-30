@@ -23,62 +23,62 @@
 </form>
 
 <script>
-function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-}
-
-async function loadStatuses() {
-    const res = await fetch("/api/v1/enums/session-statuses");
-    const data = await res.json();
-
-    const select = document.getElementById("status");
-
-    data.items.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item.value;
-        option.textContent = item.label;
-        select.appendChild(option);
-    });
-}
-
-async function createSession(e) {
-    e.preventDefault();
-
-    const token = getCookie("access_token");
-
-    const payload = {
-        event_id: "{{ event_id }}",
-        title: document.getElementById("title").value,
-        description: document.getElementById("description").value,
-        start_date: new Date(document.getElementById("start_date").value).toISOString(),
-        end_date: new Date(document.getElementById("end_date").value).toISOString(),
-        location: document.getElementById("location").value,
-        type: document.getElementById("type").value,
-        age_limit: parseInt(document.getElementById("age_limit").value) || null,
-        status: document.getElementById("status").value
-    };
-
-    const res = await fetch("/api/v1/sessions/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-        alert("Ошибка создания сессии");
-        return;
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
     }
 
-    // назад на деталку мероприятия
-    window.location.href = `/admin/events/{{ event_id }}`;
-}
+    async function loadStatuses() {
+        const res = await fetch("/api/v1/enums/session-statuses");
+        const data = await res.json();
 
-document.addEventListener("DOMContentLoaded", loadStatuses);
+        const select = document.getElementById("status");
+
+        data.items.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item.value;
+            option.textContent = item.label;
+            select.appendChild(option);
+        });
+    }
+
+    async function createSession(e) {
+        e.preventDefault();
+
+        const token = getCookie("access_token");
+
+        const payload = {
+            event_id: "{{ event_id }}",
+            title: document.getElementById("title").value,
+            description: document.getElementById("description").value,
+            start_date: new Date(document.getElementById("start_date").value).toISOString(),
+            end_date: new Date(document.getElementById("end_date").value).toISOString(),
+            location: document.getElementById("location").value,
+            type: document.getElementById("type").value,
+            age_limit: parseInt(document.getElementById("age_limit").value) || null,
+            status: document.getElementById("status").value
+        };
+
+        const res = await fetch("/api/v1/sessions/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            alert("Ошибка создания сессии");
+            return;
+        }
+
+        // назад на деталку мероприятия
+        window.location.href = `/admin/events/{{ event_id }}`;
+    }
+
+    document.addEventListener("DOMContentLoaded", loadStatuses);
 </script>
 
 {% endblock %}
