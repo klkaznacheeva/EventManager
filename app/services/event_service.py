@@ -1,12 +1,12 @@
 # app/services/event_service.py
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import joinedload
 from sqlalchemy import func, or_
 from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from app.core.enum import RoleList, EventStatusMap, SessionStatusMap
-from app.models import Role, Event
+from app.core.enum import RoleList, EventStatusMap, SessionStatusMap, EventStatus, SessionStatus
+from app.models import Role, Event, Session
 from app.models.event import Event
 from app.models.category import Category
 from app.models.user import User
@@ -19,6 +19,7 @@ from app.schemas.event import (
     EventListResponse
 )
 from app.repositories.event_repository import EventRepository
+from app.services.file_service import FileService
 
 
 class EventService:
@@ -113,6 +114,8 @@ class EventService:
                 session.status,
                 session.status
             )
+            session_files = FileService.get_session_files(db, session.id)
+            session.files = session_files
 
         return event
 
@@ -197,7 +200,8 @@ class EventService:
     def get_events_list(
             db,
             data: EventListRequest,
-            user_id: Optional[UUID] = None
+            user_id: Optional[UUID] = None,
+            user_mode="organizer"
     ) -> EventListResponse:
         """Получение списка мероприятий с фильтрацией и учетом роли пользователя"""
 
@@ -237,6 +241,21 @@ class EventService:
         if data.start_to:
             query = query.filter(Event.start_date <= data.start_to)
 
+        if user and user.is_system:
+            pass
+        elif user_mode == "organizer":
+            if user_id:
+                organizer_role_id = db.query(Role.id).filter(
+                    Role.name == RoleList.organizer.value
+                ).scalar()
+
+                query = query.join(EventParticipant).filter(
+                    EventParticipant.user_id == user_id,
+                    EventParticipant.role_id == organizer_role_id
+                )
+        elif user_mode == "participant":
+            query = query.filter(Event.status == EventStatus.PUBLISHED.value)
+
         # --- Сортировка ---
         query = query.order_by(Event.start_date.asc())
 
@@ -271,3 +290,53 @@ class EventService:
             page=data.page,
             limit=data.limit
         )
+
+    @staticmethod
+    def publish_event(
+            db,
+            event_id: UUID,
+            user_id: UUID
+    ):
+        event = db.query(Event).filter(Event.id == event_id).first()
+
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+        # 🔒 только организатор
+        if str(event.organizer_id) != str(user_id):
+            raise HTTPException(status_code=403, detail="Not allowed")
+
+        # уже опубликовано
+        if event.status == EventStatus.PUBLISHED.value:
+            return {"message": "Уже опубликовано"}
+
+        # ✅ обновляем статус события
+        event.status = EventStatus.PUBLISHED.value
+
+        # ✅ обновляем сессии
+        db.query(Session).filter(
+            Session.event_id == event_id,
+            Session.status == SessionStatus.DRAFT.value
+        ).update({
+            Session.status: SessionStatus.PUBLISHED.value
+        }, synchronize_session=False)
+
+        db.commit()
+
+        return {"message": "Мероприятие опубликовано"}
+
+    @staticmethod
+    def join_event(db: Session, event_id: UUID, user_id: UUID):
+        # Проверка существования участника
+        participant = db.query(EventParticipant).filter_by(event_id=event_id, user_id=user_id).first()
+        if participant:
+            return participant  # Уже записан
+        participant = EventParticipant(event_id=event_id, user_id=user_id)
+        db.add(participant)
+        db.commit()
+        db.refresh(participant)
+        return participant
+
+    @staticmethod
+    def get_participants_count(db: Session, event_id: UUID):
+        return db.query(EventParticipant).filter_by(event_id=event_id).count()

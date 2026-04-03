@@ -39,3 +39,10 @@ class SessionResponse(BaseModel):
 class SessionListResponse(BaseModel):
     items: List[SessionResponse]
     total: int
+
+class SessionUpdateRequest(BaseModel):
+    title: str
+    description: Optional[str] = None
+    start_date: datetime
+    end_date: datetime
+    location: Optional[str] = None

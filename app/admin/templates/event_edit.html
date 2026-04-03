@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Редактирование мероприятия</h2>
+
+<form id="edit-event-form">
+    <label>Название:</label><br>
+    <input type="text" id="title" required><br><br>
+
+    <label>Описание:</label><br>
+    <textarea id="description" rows="5"></textarea><br><br>
+
+    <label>Категория:</label><br>
+    <select id="category_id"></select><br><br>
+
+    <label>Дата начала:</label><br>
+    <input type="datetime-local" id="start_date" required><br><br>
+
+    <label>Дата окончания:</label><br>
+    <input type="datetime-local" id="end_date" required><br><br>
+
+    <label>Местоположение:</label><br>
+    <input type="text" id="location"><br><br>
+
+    <button type="submit">Сохранить</button>
+</form>
+
+<a href="/admin/events/{{ event_id }}">Назад к мероприятию</a>
+
+<script>
+    const eventId = "{{ event_id }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    // Загружаем текущее мероприятие
+    async function loadEvent() {
+        const token = getCookie("access_token");
+        const res = await fetch(`/api/v1/events/${eventId}`, {
+            headers: {"Authorization": "Bearer " + token}
+        });
+        if (!res.ok) return alert("Ошибка загрузки мероприятия");
+        const event = await res.json();
+
+        document.getElementById("title").value = event.title;
+        document.getElementById("description").value = event.description || "";
+        document.getElementById("start_date").value = new Date(event.start_date).toISOString().slice(0,16);
+        document.getElementById("end_date").value = new Date(event.end_date).toISOString().slice(0,16);
+        document.getElementById("location").value = event.location || "";
+
+        // Загружаем категории
+       await loadCategories(event.category_id);
+    }
+
+    async function loadCategories(selectedId) {
+        const token = getCookie("access_token");
+        const res = await fetch("/api/v1/enums/categories", {
+            headers: {"Authorization": "Bearer " + token}
+        });
+        if (!res.ok) return;
+
+        const data = await res.json(); // { items: [...] }
+        const select = document.getElementById("category_id");
+        select.innerHTML = ""; // очищаем старые options
+
+        data.items.forEach(cat => {
+            const opt = document.createElement("option");
+            opt.value = cat.value;   // используем "value"
+            opt.text = cat.label;    // используем "label"
+            if (cat.value === selectedId) opt.selected = true;
+            select.appendChild(opt);
+        });
+    }
+
+    // Сохраняем изменения
+    document.getElementById("edit-event-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const token = getCookie("access_token");
+
+        const data = {
+            title: document.getElementById("title").value,
+            description: document.getElementById("description").value,
+            start_date: new Date(document.getElementById("start_date").value).toISOString(),
+            end_date: new Date(document.getElementById("end_date").value).toISOString(),
+            location: document.getElementById("location").value,
+            category_id: document.getElementById("category_id").value
+        };
+
+        const res = await fetch(`/api/v1/events/${eventId}`, {
+            method: "PUT",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!res.ok) return alert("Ошибка сохранения");
+        alert("Мероприятие обновлено");
+        window.location.href = `/admin/events/${eventId}`;
+    });
+
+    document.addEventListener("DOMContentLoaded", loadEvent);
+</script>
+{% endblock %}

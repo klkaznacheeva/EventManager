@@ -8,7 +8,7 @@ from app.core.security import verify_password, hash_password
 from app.db.database import get_db
 from app.models import User
 from app.models.file_attachment import FileAttachment
-from app.schemas.user import UserProfileResponse, ChangePasswordRequest
+from app.schemas.user import UserProfileResponse, ChangePasswordRequest, UserUpdateRequest
 from app.services.file_service import FileService
 from app.core.enum import EntityType, AttachmentType
 
@@ -82,3 +82,29 @@ def change_password(
     db.commit()
 
     return {"message": "Пароль успешно изменен"}
+
+@router.put("/profile")
+def update_profile(
+    data: UserUpdateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_required_user)
+):
+    existing_user = db.query(User).filter(
+        User.email == data.email,
+        User.id != user.id
+    ).first()
+
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email уже используется")
+
+    user.first_name = data.first_name
+    user.second_name = data.second_name
+    user.last_name = data.last_name
+    user.phone = data.phone
+    user.birth_date = data.birth_date
+    user.email = data.email
+
+    db.commit()
+    db.refresh(user)
+
+    return {"message": "Профиль обновлен"}

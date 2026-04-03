@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Редактирование сессии</h1>
+
+<form id="session-form">
+    <label>
+        Название:
+        <input type="text" id="session-title" required>
+    </label>
+    <br><br>
+    <label>
+        Описание:
+        <textarea id="session-description" rows="4" cols="50"></textarea>
+    </label>
+    <br><br>
+    <label>
+        Дата начала:
+        <input type="datetime-local" id="session-start" required>
+    </label>
+    <br><br>
+    <label>
+        Дата окончания:
+        <input type="datetime-local" id="session-end" required>
+    </label>
+    <br><br>
+    <label>
+        Местоположение:
+        <input type="text" id="session-location">
+    </label>
+    <br><br>
+    <button type="submit">Сохранить</button>
+    <button type="button" onclick="goBack()">Отмена</button>
+</form>
+
+<script>
+    const token = getCookie("access_token");
+    const eventId = "{{ event_id }}";
+    const sessionId = "{{ session_id }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    async function loadSession() {
+        const res = await fetch(`/api/v1/sessions/${sessionId}`, {
+            headers: { "Authorization": "Bearer " + token }
+        });
+
+        if (!res.ok) return alert("Ошибка загрузки сессии");
+        const session = await res.json();
+
+        document.getElementById("session-title").value = session.title;
+        document.getElementById("session-description").value = session.description || "";
+        document.getElementById("session-start").value = session.start_date.slice(0,16);
+        document.getElementById("session-end").value = session.end_date.slice(0,16);
+        document.getElementById("session-location").value = session.location || "";
+    }
+
+    document.getElementById("session-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const data = {
+            title: document.getElementById("session-title").value.trim(),
+            description: document.getElementById("session-description").value.trim(),
+            start_date: document.getElementById("session-start").value,
+            end_date: document.getElementById("session-end").value,
+            location: document.getElementById("session-location").value.trim()
+        };
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}`, {
+            method: "PUT",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!res.ok) return alert("Ошибка при сохранении сессии");
+        alert("Сессия обновлена");
+        window.location.href = `/admin/events/${eventId}`;
+    });
+
+    function goBack() {
+        window.location.href = `/admin/events/${eventId}`;
+    }
+
+    document.addEventListener("DOMContentLoaded", loadSession);
+</script>
+
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Выберите режим работы</h2>
+
+<button onclick="setMode('organizer')">Я организатор</button>
+<button onclick="setMode('participant')">Я участник</button>
+
+<script>
+function setMode(mode) {
+    localStorage.setItem("user_mode", mode);
+    window.location.href = "/admin/dashboard";
+}
+</script>
+{% endblock %}

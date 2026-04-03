@@ -14,6 +14,11 @@
 
 <hr>
 
+<button id="switch-mode-btn" onclick="switchMode()">Сменить режим</button>
+<button onclick="enableEdit()">Редактировать</button>
+<button onclick="saveProfile()" style="display:none;" id="save-btn">Сохранить</button>
+<button onclick="logout()">Выйти</button>
+
 <h3>Аватар</h3>
 <img id="avatar" src="" width="150" style="display:none;"/>
 <br><br>
@@ -26,6 +31,9 @@
 <input type="password" id="old_password" placeholder="Старый пароль"><br><br>
 <input type="password" id="new_password" placeholder="Новый пароль"><br><br>
 <button onclick="changePassword()">Сменить пароль</button>
+
+<hr>
+<a href="/admin/dashboard">Назад к списку мероприятий</a>
 
 <script>
     function getCookie(name) {
@@ -124,7 +132,67 @@
         document.getElementById("new_password").value = '';
     }
 
+    function enableEdit() {
+        ["first_name", "last_name", "second_name", "phone", "birth_date", "email"].forEach(id => {
+            const el = document.getElementById(id);
+            const value = el.innerText;
+
+            el.innerHTML = `<input id="input_${id}" value="${value || ''}">`;
+        });
+
+        document.getElementById("save-btn").style.display = "inline-block";
+    }
+
+    async function saveProfile() {
+        const token = getCookie("access_token");
+
+        const body = {
+            first_name: document.getElementById("input_first_name").value,
+            last_name: document.getElementById("input_last_name").value,
+            second_name: document.getElementById("input_second_name").value,
+            phone: document.getElementById("input_phone").value,
+            birth_date: document.getElementById("input_birth_date").value,
+            email: document.getElementById("input_email").value,
+        };
+
+        const res = await fetch("/api/v1/users/profile", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+            alert("Ошибка сохранения");
+            return;
+        }
+
+        alert("Сохранено");
+        loadProfile();
+    }
+
     document.addEventListener("DOMContentLoaded", loadProfile);
+    function getUserMode() {
+        return localStorage.getItem("user_mode") || "organizer";
+    }
+
+    function renderMode() {
+        const mode = getUserMode();
+        document.getElementById("current-mode").innerText =
+            mode === "organizer" ? "Организатор" : "Участник";
+    }
+
+    function switchMode() {
+        window.location.href = "/admin/mode-select";
+    }
+
+    async function logout() {
+        await fetch("/api/v1/auth/logout", {method: "POST"});
+        localStorage.removeItem("user_mode");
+        window.location.href = "/admin/login";
+    }
 </script>
 
 {% endblock %}

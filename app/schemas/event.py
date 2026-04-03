@@ -50,6 +50,10 @@ class OrganizerResponse(BaseModel):
         from_attributes = True
 
 
+class SessionFileResponse(BaseModel):
+    file_name: str
+    url: str
+
 class SessionResponse(BaseModel):
     id: UUID
     title: str
@@ -60,6 +64,7 @@ class SessionResponse(BaseModel):
     type: Optional[str]
     status: Optional[str]
     status_label: Optional[str] = None
+    files: Optional[List[SessionFileResponse]] = None
 
     class Config:
         from_attributes = True
@@ -83,6 +88,7 @@ class EventResponse(BaseModel):
     sessions: Optional[List[SessionResponse]] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
+    banner_url : Optional[str] = None
 
     class Config:
         from_attributes = True

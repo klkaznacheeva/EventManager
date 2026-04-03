@@ -4,16 +4,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional
 from jose import JWTError
 from app.core.security import decode_token
-from app.db.database import SessionLocal
+from app.db.database import SessionLocal, get_db
 from app.repositories.user_repository import UserRepository
 from app.models.user import User
+from sqlalchemy.orm import Session
 
 security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+        request: Request,
+        db: Session = Depends(get_db),
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> Optional[User]:
     """
     Получает текущего пользователя:
@@ -44,17 +46,14 @@ async def get_current_user(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    db = SessionLocal()
-    try:
-        user_repo = UserRepository(db)
-        user = user_repo.get_by_id(user_id)
+    user_repo = UserRepository(db)
+    user = user_repo.get_by_id(user_id)
 
-        if user is None:
-            raise HTTPException(status_code=401, detail="User not found")
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
 
-        return user
-    finally:
-        db.close()
+    return user
+
 
 
 async def get_required_user(

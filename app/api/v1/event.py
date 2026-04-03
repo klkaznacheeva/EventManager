@@ -1,12 +1,13 @@
 # app/api/v1/event.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import Optional
 from uuid import UUID
 
-from app.core.enum import EventStatus
+from app.core.enum import EventStatus, RoleList, EntityType, AttachmentType
 from app.core.jwt_dependency import get_required_user, get_current_user
 from app.db.database import get_db
+from app.models import Event, EventParticipant, Role
 from app.models.user import User
 from app.schemas.event import (
     EventCreateRequest,
@@ -18,6 +19,8 @@ from app.schemas.event import (
 from app.services.entity_message_service import EntityMessageService
 from app.services.event_service import EventService
 from starlette.responses import JSONResponse
+
+from app.services.file_service import FileService
 
 router = APIRouter(prefix="/api/v1/events", tags=["Events"])
 
@@ -42,6 +45,17 @@ def get_event(
     """Получение деталей мероприятия"""
     user_id = current_user.id if current_user else None
     event = EventService.get_event_by_id(db, event_id, user_id)
+
+    # Получаем баннер мероприятия
+    file = FileService.get_file(
+        db=db,
+        entity_type=EntityType.EVENT,
+        entity_id=event.id,
+        attachment_type=AttachmentType.EVENT_COVER
+    )
+    event.banner_url = f"/{file.storage_path}" if file else None
+    event.participants_count = EventService.get_participants_count(db, event.id)
+
     return event
 
 
@@ -70,6 +84,7 @@ def delete_event(
 
 @router.get("/", response_model=EventListResponse)
 def list_events(
+        request: Request,
         page: int = 1,
         limit: int = 20,
         category_id: Optional[UUID] = None,
@@ -82,6 +97,8 @@ def list_events(
 ):
     """Получение списка мероприятий с фильтрацией"""
     from datetime import datetime
+
+    user_mode = request.headers.get("X-User-Mode", "organizer")
 
     # Преобразуем строки в datetime если они переданы
     start_from_dt = None
@@ -103,7 +120,7 @@ def list_events(
     )
 
     user_id = current_user.id if current_user else None
-    result = EventService.get_events_list(db, request, user_id)
+    result = EventService.get_events_list(db, request, user_id, user_mode)
     return result
 
 @router.post("/{event_id}/reviewed")
@@ -147,3 +164,55 @@ def mark_event_needs_edit(
     )
 
     return {"detail": "Event marked as needs edit"}
+
+@router.post("/{event_id}/publish")
+def publish_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_required_user)
+):
+    return EventService.publish_event(
+        db=db,
+        event_id=event_id,
+        user_id=user.id
+    )
+
+@router.post("/{event_id}/upload-banner")
+def upload_event_banner(
+    event_id: UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    """Загрузка баннера для мероприятия"""
+
+    # Удаляем старый баннер
+    FileService.delete_files(
+        db=db,
+        entity_type=EntityType.EVENT,
+        entity_id=event_id,
+        attachment_type=AttachmentType.EVENT_COVER
+    )
+
+    # Сохраняем новый баннер
+    db_file = FileService.save_file(
+        db=db,
+        file=file,
+        entity_type=EntityType.EVENT,
+        entity_id=event_id,
+        attachment_type=AttachmentType.EVENT_COVER
+    )
+
+    return {"file_id": str(db_file.id)}
+
+
+@router.post("/{event_id}/join")
+def join_event(event_id: str, db: Session = Depends(get_db), user=Depends(get_required_user)):
+    event = db.query(Event).filter_by(id=event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if event.status != "published":
+        raise HTTPException(status_code=400, detail="Нельзя записаться на неопубликованное мероприятие")
+
+    EventService.join_event(db=db, event_id=UUID(event_id), user_id=user.id)
+    return {"detail": "Вы успешно записались на мероприятие"}

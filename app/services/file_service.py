@@ -4,6 +4,7 @@ import uuid
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
+from app.core.enum import EntityType, AttachmentType
 from app.models.file import File
 from app.models.file_attachment import FileAttachment
 
@@ -114,3 +115,23 @@ class FileService:
             db.delete(file)
 
         db.commit()
+
+
+    @staticmethod
+    def get_session_files(db: Session, session_id: uuid.UUID):
+        """Возвращает список файлов, прикрепленных к сессии"""
+        attachments = db.query(FileAttachment, File).join(
+            File, File.id == FileAttachment.file_id
+        ).filter(
+            FileAttachment.entity_type == EntityType.SESSION,
+            FileAttachment.entity_id == session_id,
+            FileAttachment.attachment_type == AttachmentType.SESSION_FILE
+        ).all()
+
+        return [
+            {
+                "file_name": file.File.filename,
+                "url": f"/uploads/{file.File.storage_path.split('/')[-1]}"
+            }
+            for file in attachments
+        ]

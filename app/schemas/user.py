@@ -19,3 +19,11 @@ class UserProfileResponse(BaseModel):
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
+
+class UserUpdateRequest(BaseModel):
+    first_name: str
+    second_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    birth_date: Optional[date] = None
+    email: EmailStr

@@ -83,3 +83,48 @@ def profile_page(request: Request, user=Depends(get_required_user)):
         "user_name": f"{user.first_name} {user.last_name}"
     }
     return render_template("profile.html", context)
+
+@router.get("/mode-select", response_class=HTMLResponse)
+def mode_select_page(request: Request, user=Depends(get_required_user)):
+    context = {
+        "request": request,
+        "user_name": f"{user.first_name} {user.last_name}"
+    }
+    return render_template("mode_select.html", context)
+
+@router.get("/profile/update", response_class=HTMLResponse)
+def profile_edit_page(request: Request, user=Depends(get_required_user)):
+    try:
+        return render_template("profile_update.html", {"request": request})
+    except Exception as e:
+        import traceback
+        error_text = f"Error: {str(e)}\n\n{traceback.format_exc()}"
+        return PlainTextResponse(error_text, status_code=500)
+
+@router.get("/events/{event_id}/edit", response_class=HTMLResponse)
+def edit_event_page(event_id: UUID, request: Request, user=Depends(get_required_user)):
+    """
+    Страница редактирования мероприятия
+    """
+    try:
+        context = {
+            "request": request,
+            "event_id": str(event_id),
+            "user_name": f"{user.first_name} {user.last_name}",
+            "user_role": "admin" if user.is_system else "organizer"
+        }
+        return render_template("event_edit.html", context)
+    except Exception as e:
+        import traceback
+        error_text = f"Error: {str(e)}\n\n{traceback.format_exc()}"
+        return PlainTextResponse(error_text, status_code=500)
+
+@router.get("/events/{event_id}/sessions/{session_id}/edit", response_class=HTMLResponse)
+def edit_session_page(event_id: UUID, session_id: UUID, request: Request, user=Depends(get_required_user)):
+    context = {
+        "request": request,
+        "event_id": str(event_id),
+        "session_id": str(session_id),
+        "user_name": f"{user.first_name} {user.last_name}"
+    }
+    return render_template("session_edit.html", context)

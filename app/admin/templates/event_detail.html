@@ -3,31 +3,46 @@
 {% block content %}
 <h1 id="event-title">Загрузка...</h1>
 
-<div id="event-info">
+<div id="event-info" style="margin-bottom: 20px;">
     <p><strong>Категория:</strong> <span id="event-category"></span></p>
     <p><strong>Описание:</strong> <span id="event-description"></span></p>
     <p><strong>Дата:</strong> <span id="event-dates"></span></p>
     <p><strong>Местоположение:</strong> <span id="event-location"></span></p>
     <p><strong>Статус:</strong> <span id="event-status"></span></p>
+    <p><strong>Участники:</strong> <span id="event-participants-count">0</span></p>
     <p><strong>Организатор:</strong> <span id="event-organizer"></span></p>
+
+    <div id="event-banner-container" style="margin-top: 15px;">
+        <p><strong>Баннер мероприятия:</strong></p>
+        <img id="event-banner-img" src="" alt="Баннер мероприятия" style="max-width:300px; display:none; margin-bottom:10px;">
+        <input type="file" id="event-banner-input" style="display:none;" onchange="uploadEventBanner()">
+        <button onclick="document.getElementById('event-banner-input').click()">Загрузить баннер</button>
+    </div>
 </div>
 
 <hr>
 
+<!-- 👨‍💼 Действия организатора -->
+<div id="organizer-actions" style="display:none; margin-top: 15px;">
+    <button onclick="publishEvent()">Опубликовать мероприятие</button>
+</div>
+
 <h2>Сессии</h2>
-<button onclick="goToCreateSession()">Создать сессию</button>
+<button id="create-session-btn" onclick="goToCreateSession()" style="display:none; margin-bottom: 15px;">
+    Создать сессию
+</button>
 
-<ul id="event-sessions">
-    <li>Загрузка...</li>
-</ul>
+<div id="event-sessions">
+    <p>Загрузка сессий...</p>
+</div>
 
-<!-- Блок кнопок для админа -->
+<!-- 👑 Действия админа -->
 <div id="admin-actions" style="display:none; margin-top:20px;">
     <button onclick="markReviewed()">Проверено</button>
     <button onclick="showNeedsEditPopup()">Требует редактирования</button>
 </div>
 
-<!-- Попап для ввода причины -->
+<!-- Попап для редактирования -->
 <div id="needs-edit-popup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
      background:white; padding:20px; border:1px solid #ccc; z-index:100;">
     <h3>Укажите причину редактирования</h3>
@@ -36,10 +51,10 @@
     <button onclick="hideNeedsEditPopup()">Отмена</button>
 </div>
 
-<a href="/admin/dashboard">Назад к списку мероприятий</a>
+<a href="/admin/dashboard" style="display:block; margin-top:20px;">Назад к списку мероприятий</a>
 
 <script>
-    const userRole = "{{ user_role }}";  // admin или organizer
+    const userRole = "{{ user_role }}";
 
     function getCookie(name) {
         const value = `; ${document.cookie}`;
@@ -48,118 +63,205 @@
         return null;
     }
 
+    function getUserMode() {
+        return localStorage.getItem("user_mode") || "organizer";
+    }
+
+    // --- Загрузка мероприятия и сессий ---
     async function loadEvent(eventId) {
         const token = getCookie("access_token");
         if (!token) return;
 
         try {
             const res = await fetch(`/api/v1/events/${eventId}`, {
-                headers: {"Authorization": "Bearer " + token}
+                headers: {"Authorization": "Bearer " + token, "X-User-Mode": getUserMode()}
             });
-            if (!res.ok) {
-                alert("Ошибка получения мероприятия");
-                return;
-            }
-
+            if (!res.ok) return alert("Ошибка получения мероприятия");
             const event = await res.json();
 
+            // --- Данные мероприятия ---
             document.getElementById("event-title").innerText = event.title;
-            document.getElementById("event-category").innerText = event.category?.name || "Не указана";
+            document.getElementById("event-category").innerText = event.category?.name || "-";
             document.getElementById("event-description").innerText = event.description || "-";
             document.getElementById("event-dates").innerText =
                 `${new Date(event.start_date).toLocaleString()} — ${new Date(event.end_date).toLocaleString()}`;
             document.getElementById("event-location").innerText = event.location || "-";
             document.getElementById("event-status").innerText = event.status_label || event.status;
+            document.getElementById("event-participants-count").innerText = event.participants_count;
             document.getElementById("event-organizer").innerText =
                 `${event.organizer.first_name} ${event.organizer.last_name || ""}`;
 
-            const sessionsList = document.getElementById("event-sessions");
-            sessionsList.innerHTML = "";
-            if (event.sessions && event.sessions.length > 0) {
+            // --- Баннер мероприятия ---
+            const bannerImg = document.getElementById("event-banner-img");
+            if(event.banner_url){
+                bannerImg.src = event.banner_url;
+                bannerImg.style.display = "block";
+            } else bannerImg.style.display = "none";
+
+            // Кнопка загрузки баннера только для организатора
+            if(getUserMode() === "organizer"){
+                document.getElementById("event-banner-input").style.display = "inline-block";
+                document.querySelector("#event-banner-container button").style.display = "inline-block";
+            } else {
+                document.getElementById("event-banner-input").style.display = "none";
+                document.querySelector("#event-banner-container button").style.display = "none";
+            }
+
+            // --- Сессии ---
+            const sessionsContainer = document.getElementById("event-sessions");
+            sessionsContainer.innerHTML = "";
+
+            if(event.sessions && event.sessions.length > 0){
                 event.sessions.forEach(session => {
-                    const li = document.createElement("li");
-                    li.innerText = `${session.title} — ${new Date(session.start_date).toLocaleString()} — ${new Date(session.end_date).toLocaleString()}${session.location ? " (" + session.location + ")" : ""}${session.status ? " [" + session.status_label + "]" : ""}`;
-                    sessionsList.appendChild(li);
+                    const sessionDiv = document.createElement("div");
+                    sessionDiv.style.border = "1px solid #ccc";
+                    sessionDiv.style.padding = "10px";
+                    sessionDiv.style.marginBottom = "10px";
+                    sessionDiv.style.borderRadius = "5px";
+
+                    let sessionHTML = `
+                        <strong>${session.title}</strong> — ${new Date(session.start_date).toLocaleString()} — ${new Date(session.end_date).toLocaleString()}
+                        ${session.location ? `(${session.location})` : ""} ${session.status_label ? `[${session.status_label}]` : ""}
+                    `;
+
+                    // --- Файлы сессии ---
+                    if(session.files && session.files.length > 0){
+                        sessionHTML += `<ul style="margin-top:5px;">`;
+                        session.files.forEach(f => {
+                            sessionHTML += `<li><a href="${f.url}" target="_blank">${f.file_name}</a></li>`;
+                        });
+                        sessionHTML += `</ul>`;
+                    }
+
+                    sessionDiv.innerHTML = sessionHTML;
+
+                    // --- Кнопки только для организатора ---
+                    const mode = getUserMode();
+                    if(mode === "organizer"){
+                        const uploadFileDiv = document.createElement("div");
+                        uploadFileDiv.style.marginTop = "5px";
+
+                        const fileInput = document.createElement("input");
+                        fileInput.type = "file";
+                        fileInput.id = `file-input-${session.id}`;
+                        fileInput.style.display = "none";
+                        fileInput.onchange = () => uploadSessionFile(session.id);
+
+                        const fileBtn = document.createElement("button");
+                        fileBtn.innerText = "Добавить файл";
+                        fileBtn.onclick = () => fileInput.click();
+
+                        uploadFileDiv.appendChild(fileInput);
+                        uploadFileDiv.appendChild(fileBtn);
+                        sessionDiv.appendChild(uploadFileDiv);
+
+                        // Редактировать и удалить сессию
+                        const editBtn = document.createElement("button");
+                        editBtn.innerText = "Редактировать";
+                        editBtn.style.marginLeft="10px";
+                        editBtn.onclick = () => goToEditSession(event.id, session.id);
+
+                        const delBtn = document.createElement("button");
+                        delBtn.innerText = "Удалить";
+                        delBtn.style.marginLeft="5px";
+                        delBtn.onclick = () => deleteSession(session.id);
+
+                        sessionDiv.appendChild(editBtn);
+                        sessionDiv.appendChild(delBtn);
+                    }
+
+                    sessionsContainer.appendChild(sessionDiv);
                 });
             } else {
-                sessionsList.innerHTML = "<li>Сессий пока нет.</li>";
+                sessionsContainer.innerHTML = "<p>Сессий пока нет.</p>";
             }
 
-            // Показ кнопок админа
-            if (event.status === "draft" && userRole === "admin") {
-                document.getElementById("admin-actions").style.display = "block";
+            // --- Роли ---
+            const mode = getUserMode();
+            if(userRole==="admin" && event.status==="draft") document.getElementById("admin-actions").style.display="block";
+            if(userRole!=="admin" && mode==="organizer"){
+                document.getElementById("create-session-btn").style.display="inline-block";
+                if(event.status==="draft") document.getElementById("organizer-actions").style.display="block";
             }
-
-        } catch (err) {
+        } catch(err){
             console.error(err);
-            alert("Произошла ошибка при загрузке мероприятия");
+            alert("Ошибка загрузки");
         }
     }
 
-    // --- Кнопки админа ---
-    async function markReviewed() {
+    // --- ADMIN & ORGANIZER FUNCTIONS ---
+ async function markReviewed() {
         const token = getCookie("access_token");
         const eventId = "{{ event_id }}";
-
-        const res = await fetch(`/api/v1/events/${eventId}/reviewed`, {
-            method: "POST",
-            headers: {"Authorization": "Bearer " + token}
-        });
-
-        if (!res.ok) {
-            alert("Ошибка при обновлении статуса");
-            return;
-        }
-
-        alert("Мероприятие помечено как 'Проверено'");
+        const res = await fetch(`/api/v1/events/${eventId}/reviewed`, {method:"POST", headers:{"Authorization":"Bearer "+token}});
+        if(!res.ok) return alert("Ошибка");
+        alert("Проверено");
         loadEvent(eventId);
     }
 
-    function showNeedsEditPopup() {
-        document.getElementById("needs-edit-popup").style.display = "block";
-    }
-
-    function hideNeedsEditPopup() {
-        document.getElementById("needs-edit-popup").style.display = "none";
-    }
-
-    async function submitNeedsEdit() {
+    function showNeedsEditPopup(){document.getElementById("needs-edit-popup").style.display="block";}
+    function hideNeedsEditPopup(){document.getElementById("needs-edit-popup").style.display="none";}
+    async function submitNeedsEdit(){
         const token = getCookie("access_token");
-        const eventId = "{{ event_id }}";
-        const reason = document.getElementById("edit-reason").value.trim();
-
-        if (!reason) {
-            alert("Введите причину");
-            return;
-        }
-
-        const res = await fetch(`/api/v1/events/${eventId}/needs-edit`, {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer " + token,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({reason: reason})
-        });
-
-        if (!res.ok) {
-            alert("Ошибка при отправке сообщения");
-            return;
-        }
-
-        alert("Причина отправлена организатору");
-        hideNeedsEditPopup();
-        loadEvent(eventId);
+        const eventId="{{ event_id }}";
+        const reason=document.getElementById("edit-reason").value.trim();
+        if(!reason) return alert("Введите причину");
+        const res=await fetch(`/api/v1/events/${eventId}/needs-edit`, {method:"POST", headers:{"Authorization": "Bearer "+token,"Content-Type":"application/json"}, body:JSON.stringify({reason})});
+        if(!res.ok) return alert("Ошибка");
+        alert("Отправлено"); document.getElementById("edit-reason").value=""; hideNeedsEditPopup(); loadEvent(eventId);
     }
 
-    // --- Создание сессии ---
-    function goToCreateSession() {
-        window.location.href = `/admin/events/{{ event_id }}/sessions/create`;
+    // --- ORGANIZER ---
+    async function publishEvent(){
+        const token = getCookie("access_token");
+        const eventId="{{ event_id }}";
+        const res=await fetch(`/api/v1/events/${eventId}/publish`, {method:"POST", headers:{"Authorization":"Bearer "+token}});
+        if(!res.ok) return alert("Ошибка публикации");
+        alert("Опубликовано"); loadEvent(eventId);
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        const eventId = "{{ event_id }}";
-        loadEvent(eventId);
-    });
+    // --- NAV ---
+    function goToCreateSession(){window.location.href=`/admin/events/{{ event_id }}/sessions/create`;}
+    function goToEditSession(eventId, sessionId){window.location.href=`/admin/events/${eventId}/sessions/${sessionId}/edit`;}
+    async function deleteSession(sessionId){
+        if(!confirm("Удалить сессию?")) return;
+        const token=getCookie("access_token");
+        const res=await fetch(`/api/v1/sessions/${sessionId}`, {method:"DELETE", headers:{"Authorization":"Bearer "+token}});
+        if(!res.ok) return alert("Ошибка при удалении сессии");
+        alert("Сессия удалена"); loadEvent("{{ event_id }}");
+    }
+
+    // --- UPLOAD FILES ---
+    async function uploadEventBanner(){
+        const input=document.getElementById("event-banner-input");
+        if(!input.files.length) return alert("Выберите файл");
+        const formData=new FormData(); formData.append("file", input.files[0]);
+        const token=getCookie("access_token");
+        const res=await fetch(`/api/v1/events/{{ event_id }}/upload-banner`, {method:"POST", headers:{"Authorization":"Bearer "+token}, body:formData});
+        if(!res.ok) return alert("Ошибка загрузки баннера");
+        alert("Баннер мероприятия загружен"); input.value=""; loadEvent("{{ event_id }}");
+    }
+
+    async function uploadSessionBanner(sessionId){
+        const input=document.getElementById(`banner-input-${sessionId}`);
+        if(!input.files.length) return alert("Выберите файл");
+        const formData=new FormData(); formData.append("file", input.files[0]);
+        const token=getCookie("access_token");
+        const res=await fetch(`/api/v1/sessions/${sessionId}/upload-banner`, {method:"POST", headers:{"Authorization":"Bearer "+token}, body:formData});
+        if(!res.ok) return alert("Ошибка загрузки баннера");
+        alert("Баннер сессии загружен"); input.value="";
+    }
+
+    async function uploadSessionFile(sessionId){
+        const input=document.getElementById(`file-input-${sessionId}`);
+        if(!input.files.length) return alert("Выберите файл");
+        const formData=new FormData(); formData.append("file", input.files[0]);
+        const token=getCookie("access_token");
+        const res=await fetch(`/api/v1/sessions/${sessionId}/upload-file`, {method:"POST", headers:{"Authorization":"Bearer "+token}, body:formData});
+        if(!res.ok) return alert("Ошибка загрузки файла");
+        alert("Файл сессии загружен"); input.value="";
+    }
+
+    document.addEventListener("DOMContentLoaded", ()=>{ loadEvent("{{ event_id }}"); });
 </script>
 {% endblock %}
