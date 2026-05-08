@@ -16,6 +16,9 @@ class EntityMessage(Base):
     type = Column(String(50), nullable=False)
     message = Column(Text, nullable=False)
     author_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
 
     author = relationship("User")

@@ -1,6 +1,7 @@
 # app/api/v1/user.py
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.jwt_dependency import get_required_user
@@ -9,6 +10,7 @@ from app.db.database import get_db
 from app.models import User
 from app.models.file_attachment import FileAttachment
 from app.schemas.user import UserProfileResponse, ChangePasswordRequest, UserUpdateRequest
+from app.services.coordinator_invite_service import CoordinatorInviteService
 from app.services.file_service import FileService
 from app.core.enum import EntityType, AttachmentType
 
@@ -108,3 +110,55 @@ def update_profile(
     db.refresh(user)
 
     return {"message": "Профиль обновлен"}
+
+@router.post("/coordinator-invites/{token}/accept")
+def accept_coordinator_invite(
+    token: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    participant = CoordinatorInviteService.accept_invite(
+        db=db,
+        token=token,
+        user_id=current_user.id
+    )
+
+    return {
+        "detail": "Coordinator invite accepted",
+        "event_id": str(participant.event_id)
+    }
+
+@router.get("/search")
+def search_users(
+    query: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    search = f"%{query.strip()}%"
+
+    users = (
+        db.query(User)
+        .filter(
+            or_(
+                User.email.ilike(search),
+                User.phone.ilike(search),
+                User.first_name.ilike(search),
+                User.last_name.ilike(search)
+            )
+        )
+        .limit(10)
+        .all()
+    )
+
+    return {
+        "items": [
+            {
+                "id": str(user.id),
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "phone": getattr(user, "phone", None)
+            }
+            for user in users
+        ]
+    }

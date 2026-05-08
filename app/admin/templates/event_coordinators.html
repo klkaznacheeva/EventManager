@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Координаторы мероприятия</h1>
+        <p class="page-description">
+            Управление координаторами: приглашение по ссылке, ручное назначение и удаление.
+        </p>
+    </div>
+
+    <div class="btn-row">
+        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">
+            Назад к мероприятию
+        </a>
+    </div>
+</div>
+
+<section class="card action-card">
+    <div class="card-body">
+        <h3 class="action-title">Invite-ссылка</h3>
+        <p class="action-text">
+            Создайте ссылку и отправьте её будущим координаторам.
+        </p>
+
+        <div class="btn-row" style="margin-top: 16px;">
+            <button class="btn btn-primary" onclick="createInvite()">
+                Выдать инвайт
+            </button>
+        </div>
+
+        <div id="invite-result" style="display:none; margin-top: 16px;">
+            <input id="invite-url" readonly style="width:100%; padding:10px;">
+            <div class="btn-row" style="margin-top: 12px;">
+                <button class="btn btn-secondary" onclick="copyInvite()">
+                    Скопировать ссылку
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="card action-card">
+    <div class="card-body">
+        <h3 class="action-title">Добавить вручную</h3>
+        <p class="action-text">
+            Найдите зарегистрированного пользователя по email, телефону, имени или фамилии.
+        </p>
+
+        <div class="btn-row" style="margin-top: 16px;">
+            <input
+                id="user-search-query"
+                placeholder="Введите email, телефон или имя"
+                style="width:100%; padding:10px;"
+            >
+            <button class="btn btn-primary" onclick="searchUsers()">
+                Найти
+            </button>
+        </div>
+
+        <div id="users-search-result" class="sessions-list" style="margin-top: 16px;"></div>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Назначенные координаторы</h2>
+            <p class="card-subtitle">Пользователи, которым выдана роль координатора на этом мероприятии.</p>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <div id="coordinators-list" class="sessions-list">
+            <div class="loading-state">Загрузка координаторов...</div>
+        </div>
+    </div>
+</section>
+
+<script>
+    const eventId = "{{ event_id }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return "";
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function getFullName(user) {
+        return `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Пользователь";
+    }
+
+    async function loadCoordinators() {
+        const token = getCookie("access_token");
+        const container = document.getElementById("coordinators-list");
+
+        const res = await fetch(`/api/v1/events/${eventId}/coordinators`, {
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            container.innerHTML = `<div class="empty-state">Ошибка загрузки координаторов</div>`;
+            return;
+        }
+
+        const data = await res.json();
+        const items = data.items || [];
+
+        if (items.length === 0) {
+            container.innerHTML = `<div class="empty-state">Координаторы пока не назначены.</div>`;
+            return;
+        }
+
+        container.innerHTML = "";
+
+        items.forEach(user => {
+            const div = document.createElement("div");
+            div.className = "session-card";
+
+            div.innerHTML = `
+                <div class="session-top">
+                    <div>
+                        <h3 class="session-title">${escapeHtml(getFullName(user))}</h3>
+                        <div class="session-meta">
+                            <span>${escapeHtml(user.email || "Email не указан")}</span>
+                            <span>${escapeHtml(user.phone || "Телефон не указан")}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="session-actions">
+                    <button class="btn btn-danger btn-sm" onclick="removeCoordinator('${user.user_id}')">
+                        Отменить
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(div);
+        });
+    }
+
+    async function createInvite() {
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/events/${eventId}/coordinator-invite`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                expires_in_days: 7
+            })
+        });
+
+        if (!res.ok) {
+            let message = "Ошибка создания инвайта";
+
+            try {
+                const data = await res.json();
+                message = data.detail || message;
+            } catch (err) {
+                console.error(err);
+            }
+
+            alert(message);
+            return;
+        }
+
+        const data = await res.json();
+
+        document.getElementById("invite-result").style.display = "block";
+        document.getElementById("invite-url").value = data.invite_url;
+    }
+
+    async function copyInvite() {
+        const input = document.getElementById("invite-url");
+        await navigator.clipboard.writeText(input.value);
+        alert("Ссылка скопирована");
+    }
+
+    async function searchUsers() {
+        const token = getCookie("access_token");
+        const query = document.getElementById("user-search-query").value.trim();
+        const container = document.getElementById("users-search-result");
+
+        if (!query) {
+            alert("Введите поисковый запрос");
+            return;
+        }
+
+        const res = await fetch(`/api/v1/users/search?query=${encodeURIComponent(query)}`, {
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            container.innerHTML = `<div class="empty-state">Ошибка поиска пользователей</div>`;
+            return;
+        }
+
+        const data = await res.json();
+        const users = data.items || [];
+
+        if (users.length === 0) {
+            container.innerHTML = `<div class="empty-state">Пользователи не найдены</div>`;
+            return;
+        }
+
+        container.innerHTML = "";
+
+        users.forEach(user => {
+            const div = document.createElement("div");
+            div.className = "session-card";
+
+            div.innerHTML = `
+                <div class="session-top">
+                    <div>
+                        <h3 class="session-title">${escapeHtml(getFullName(user))}</h3>
+                        <div class="session-meta">
+                            <span>${escapeHtml(user.email || "Email не указан")}</span>
+                            <span>${escapeHtml(user.phone || "Телефон не указан")}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="session-actions">
+                    <button class="btn btn-primary btn-sm" onclick="addCoordinator('${user.id}')">
+                        Назначить координатором
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(div);
+        });
+    }
+
+    async function addCoordinator(userId) {
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/events/${eventId}/coordinators`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                user_id: userId
+            })
+        });
+
+        if (!res.ok) {
+            let message = "Ошибка назначения координатора";
+
+            try {
+                const data = await res.json();
+                message = data.detail || message;
+            } catch (err) {
+                console.error(err);
+            }
+
+            alert(message);
+            return;
+        }
+
+        alert("Координатор назначен");
+        document.getElementById("users-search-result").innerHTML = "";
+        document.getElementById("user-search-query").value = "";
+        loadCoordinators();
+    }
+
+    async function removeCoordinator(userId) {
+        if (!confirm("Снять пользователя с роли координатора?")) return;
+
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/events/${eventId}/coordinators/${userId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            let message = "Ошибка удаления координатора";
+
+            try {
+                const data = await res.json();
+                message = data.detail || message;
+            } catch (err) {
+                console.error(err);
+            }
+
+            alert(message);
+            return;
+        }
+
+        alert("Координатор удален");
+        loadCoordinators();
+    }
+
+    document.addEventListener("DOMContentLoaded", loadCoordinators);
+</script>
+
+{% endblock %}

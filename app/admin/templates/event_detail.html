@@ -12,10 +12,14 @@
     </div>
 
     <div class="btn-row">
-        <a href="/admin/dashboard" class="btn btn-ghost">
-            Назад к списку
-        </a>
-    </div>
+    <button class="btn btn-secondary" id="coordinators-btn" onclick="goToCoordinators()" style="display:none;">
+        Координаторы
+    </button>
+
+    <a href="/admin/dashboard" class="btn btn-ghost">
+        Назад к списку
+    </a>
+</div>
 </div>
 
 <section class="event-detail-grid">
@@ -200,6 +204,10 @@
         return localStorage.getItem("user_mode") || "organizer";
     }
 
+    function goToCoordinators() {
+        window.location.href = `/admin/events/{{ event_id }}/coordinators`;
+    }
+
     function escapeHtml(value) {
         if (value === null || value === undefined) return "";
 
@@ -379,26 +387,32 @@
             const mode = getUserMode();
             const isOrganizerMode = userRole !== "admin" && mode === "organizer";
 
-        if (userRole === "admin" && event.status === "pending") {
-            document.getElementById("admin-actions").style.display = "block";
-        }
+            const coordinatorsBtn = document.getElementById("coordinators-btn");
 
-        if (isOrganizerMode) {
-            document.getElementById("create-session-btn").style.display = "inline-flex";
+            if (coordinatorsBtn) {
+                coordinatorsBtn.style.display = isOrganizerMode ? "inline-flex" : "none";
+            }
 
-            if (event.status === "draft" || event.status === "needs_edit") {
-                document.getElementById("organizer-actions").style.display = "block";
+            if (userRole === "admin" && event.status === "pending") {
+                document.getElementById("admin-actions").style.display = "block";
+            }
 
-                const submitBtn = document.getElementById("submit-review-btn");
+            if (isOrganizerMode) {
+                document.getElementById("create-session-btn").style.display = "inline-flex";
 
-                if (submitBtn) {
-                    submitBtn.innerText =
-                        event.status === "needs_edit"
-                            ? "Отправить повторно на проверку"
-                            : "Отправить на проверку";
+                if (event.status === "draft" || event.status === "needs_edit") {
+                    document.getElementById("organizer-actions").style.display = "block";
+
+                    const submitBtn = document.getElementById("submit-review-btn");
+
+                    if (submitBtn) {
+                        submitBtn.innerText =
+                            event.status === "needs_edit"
+                                ? "Отправить повторно на проверку"
+                                : "Отправить на проверку";
+                    }
                 }
             }
-        }
 
         } catch (err) {
             console.error(err);

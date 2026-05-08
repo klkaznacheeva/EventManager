@@ -9,6 +9,7 @@ from app.core.jwt_dependency import get_required_user, get_current_user
 from app.db.database import get_db
 from app.models import Event, EventParticipant, Role
 from app.models.user import User
+from app.schemas.coordinator_invite import CoordinatorInviteCreate
 from app.schemas.event import (
     EventCreateRequest,
     EventUpdateRequest,
@@ -16,7 +17,10 @@ from app.schemas.event import (
     EventResponse,
     EventListResponse, NeedsEditRequest
 )
+from app.schemas.event_coordinator import EventCoordinatorCreate
+from app.services.coordinator_invite_service import CoordinatorInviteService
 from app.services.entity_message_service import EntityMessageService
+from app.services.event_coordinator_service import EventCoordinatorService
 from app.services.event_service import EventService
 from starlette.responses import JSONResponse
 
@@ -333,4 +337,96 @@ def submit_event_for_review(
     return {
         "detail": "Event submitted for review",
         "status": event.status
+    }
+
+@router.post("/{event_id}/coordinator-invite")
+def create_coordinator_invite(
+    event_id: UUID,
+    model: CoordinatorInviteCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    invite = CoordinatorInviteService.create_invite(
+        db=db,
+        event_id=event_id,
+        current_user_id=current_user.id,
+        expires_in_days=model.expires_in_days
+    )
+
+    base_url = str(request.base_url).rstrip("/")
+
+    invite_url = f"{base_url}/admin/coordinator-invite/{invite.token}"
+
+    return {
+        "id": str(invite.id),
+        "event_id": str(invite.event_id),
+        "token": invite.token,
+        "invite_url": invite_url,
+        "is_active": invite.is_active,
+        "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
+        "created_at": invite.created_at.isoformat() if invite.created_at else None
+    }
+
+@router.get("/{event_id}/coordinators")
+def get_event_coordinators(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    rows = EventCoordinatorService.list_coordinators(
+        db=db,
+        event_id=event_id,
+        current_user_id=current_user.id
+    )
+
+    items = []
+
+    for participant, user in rows:
+        items.append({
+            "user_id": str(user.id),
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "phone": getattr(user, "phone", None)
+        })
+
+    return {"items": items}
+
+
+@router.post("/{event_id}/coordinators")
+def add_event_coordinator(
+    event_id: UUID,
+    model: EventCoordinatorCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    EventCoordinatorService.add_coordinator(
+        db=db,
+        event_id=event_id,
+        user_id=model.user_id,
+        current_user_id=current_user.id
+    )
+
+    return {
+        "detail": "Coordinator added"
+    }
+
+
+@router.delete("/{event_id}/coordinators/{user_id}")
+def remove_event_coordinator(
+    event_id: UUID,
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    EventCoordinatorService.remove_coordinator(
+        db=db,
+        event_id=event_id,
+        user_id=user_id,
+        current_user_id=current_user.id
+    )
+
+    return {
+        "detail": "Coordinator removed"
     }

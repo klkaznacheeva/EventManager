@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="card action-card">
+    <div class="card-body action-card-body">
+        <div>
+            <h1 class="page-title">Приглашение координатора</h1>
+            <p class="action-text">
+                Нажмите кнопку ниже, чтобы стать координатором мероприятия.
+            </p>
+        </div>
+
+        <button class="btn btn-primary" onclick="acceptInvite()">
+            Принять приглашение
+        </button>
+    </div>
+</section>
+
+<script>
+    const inviteToken = "{{ token }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    async function acceptInvite() {
+        const token = getCookie("access_token");
+
+        if (!token) {
+            localStorage.setItem("coordinator_invite_token", inviteToken);
+            window.location.href = "/admin/login";
+            return;
+        }
+
+        const res = await fetch(`/api/v1/users/coordinator-invites/${inviteToken}/accept`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            let message = "Ошибка принятия приглашения";
+
+            try {
+                const data = await res.json();
+                message = data.detail || message;
+            } catch (err) {
+                console.error(err);
+            }
+
+            alert(message);
+            return;
+        }
+
+        const data = await res.json();
+
+        alert("Вы назначены координатором мероприятия");
+        window.location.href = `/admin/events/${data.event_id}`;
+    }
+</script>
+
+{% endblock %}

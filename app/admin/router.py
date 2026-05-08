@@ -143,3 +143,32 @@ def session_comments_page(
             "event_id": str(event_id)
         }
     )
+
+@router.get("/coordinator-invite/{token}", response_class=HTMLResponse)
+def coordinator_invite_page(
+    request: Request,
+    token: str
+):
+    return render_template(
+        "coordinator_invite.html",
+        {
+            "request": request,
+            "token": token
+        }
+    )
+
+@router.get("/events/{event_id}/coordinators", response_class=HTMLResponse)
+def event_coordinators_page(
+    event_id: UUID,
+    request: Request,
+    user=Depends(get_required_user)
+):
+    return render_template(
+        "event_coordinators.html",
+        {
+            "request": request,
+            "event_id": str(event_id),
+            "user_name": f"{user.first_name} {user.last_name}",
+            "user_role": "admin" if user.is_system else "organizer"
+        }
+    )

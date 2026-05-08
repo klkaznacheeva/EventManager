@@ -12,6 +12,7 @@ from app.core.enum import (
     EventStatus,
     SessionStatus,
 )
+from app.core.helper import get_role_id_by_name
 from app.models import Role, Event
 from app.models.category import Category
 from app.models.event_participant import EventParticipant
@@ -262,7 +263,10 @@ class EventService:
         events = query.offset((data.page - 1) * data.limit).limit(data.limit).all()
 
         result_items = []
-        participant_role_id = UUID("27e9b47f-27d2-4e8c-97bd-30d72a2cf248")
+        participant_role_id = get_role_id_by_name(
+            db,
+            RoleList.user
+        )
 
         for event in events:
             participants_count = db.query(EventParticipant).filter(
@@ -356,7 +360,10 @@ class EventService:
         if participant:
             return participant
 
-        participant_role_id = UUID("27e9b47f-27d2-4e8c-97bd-30d72a2cf248")
+        participant_role_id = get_role_id_by_name(
+            db,
+            RoleList.user
+        )
 
         participant = EventParticipant(
             event_id=event_id,
@@ -404,7 +411,10 @@ class EventService:
             db: Session,
             event_id: UUID
     ):
-        participant_role_id = UUID("27e9b47f-27d2-4e8c-97bd-30d72a2cf248")
+        participant_role_id = get_role_id_by_name(
+            db,
+            RoleList.user
+        )
 
         return db.query(
             func.count(distinct(EventParticipant.user_id))
