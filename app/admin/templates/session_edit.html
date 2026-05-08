@@ -1,95 +1,314 @@
+<!-- app/admin/templates/session_edit.html -->
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Редактирование сессии</h1>
 
-<form id="session-form">
-    <label>
-        Название:
-        <input type="text" id="session-title" required>
-    </label>
-    <br><br>
-    <label>
-        Описание:
-        <textarea id="session-description" rows="4" cols="50"></textarea>
-    </label>
-    <br><br>
-    <label>
-        Дата начала:
-        <input type="datetime-local" id="session-start" required>
-    </label>
-    <br><br>
-    <label>
-        Дата окончания:
-        <input type="datetime-local" id="session-end" required>
-    </label>
-    <br><br>
-    <label>
-        Местоположение:
-        <input type="text" id="session-location">
-    </label>
-    <br><br>
-    <button type="submit">Сохранить</button>
-    <button type="button" onclick="goBack()">Отмена</button>
-</form>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Редактирование сессии</h1>
+        <p class="page-description" id="event-date-hint">
+            Обновите данные сессии.
+        </p>
+    </div>
+
+    <div class="btn-row">
+        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">
+            Назад к мероприятию
+        </a>
+    </div>
+</div>
+
+<section class="card form-card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Данные сессии</h2>
+            <p class="card-subtitle">
+                Дата и время сессии должны находиться в пределах дат мероприятия.
+            </p>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <form id="session-form" class="admin-form">
+            <div class="form-grid">
+                <div class="form-field form-field-wide">
+                    <label for="session-title">Название сессии</label>
+                    <input type="text" id="session-title" placeholder="Введите название сессии" required>
+                </div>
+
+                <div class="form-field form-field-wide">
+                    <label for="session-description">Описание</label>
+                    <textarea id="session-description" rows="5" placeholder="Опишите содержание сессии"></textarea>
+                </div>
+
+                <div class="form-field">
+                    <label for="session-start">Дата и время начала</label>
+                    <input type="datetime-local" id="session-start" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="session-end">Дата и время окончания</label>
+                    <input type="datetime-local" id="session-end" required>
+                </div>
+
+                <div class="form-field form-field-wide">
+                    <label for="session-location">Местоположение</label>
+                    <input type="text" id="session-location" placeholder="Например: Зал 1">
+                </div>
+            </div>
+
+            <p id="error" class="error-alert" style="display:none;"></p>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    Сохранить изменения
+                </button>
+
+                <button type="button" class="btn btn-ghost" onclick="goBack()">
+                    Отмена
+                </button>
+            </div>
+        </form>
+    </div>
+</section>
 
 <script>
-    const token = getCookie("access_token");
     const eventId = "{{ event_id }}";
     const sessionId = "{{ session_id }}";
+
+    let eventStartDate = null;
+    let eventEndDate = null;
 
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
+        if (parts.length === 2) return parts.pop().split(";").shift();
         return null;
     }
 
-    async function loadSession() {
-        const res = await fetch(`/api/v1/sessions/${sessionId}`, {
-            headers: { "Authorization": "Bearer " + token }
+    function showError(message) {
+        const error = document.getElementById("error");
+        error.innerText = message;
+        error.style.display = "block";
+    }
+
+    function hideError() {
+        const error = document.getElementById("error");
+        error.innerText = "";
+        error.style.display = "none";
+    }
+
+    function setSubmitLoading(isLoading) {
+        const submitBtn = document.getElementById("submit-btn");
+
+        submitBtn.disabled = isLoading;
+        submitBtn.innerText = isLoading ? "Сохранение..." : "Сохранить изменения";
+    }
+
+    function toDateTimeLocal(value) {
+        if (!value) return "";
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return "";
+        }
+
+        return date.toISOString().slice(0, 16);
+    }
+
+    function formatDateTime(value) {
+        if (!value) return "не указано";
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return "не указано";
+        }
+
+        return date.toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
         });
+    }
 
-        if (!res.ok) return alert("Ошибка загрузки сессии");
-        const session = await res.json();
+    async function loadEventBounds() {
+        const token = getCookie("access_token");
 
-        document.getElementById("session-title").value = session.title;
-        document.getElementById("session-description").value = session.description || "";
-        document.getElementById("session-start").value = session.start_date.slice(0,16);
-        document.getElementById("session-end").value = session.end_date.slice(0,16);
-        document.getElementById("session-location").value = session.location || "";
+        if (!token) {
+            showError("Пользователь не авторизован");
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/v1/events/${eventId}`, {
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "X-User-Mode": localStorage.getItem("user_mode") || "organizer"
+                }
+            });
+
+            if (!res.ok) {
+                showError("Ошибка загрузки мероприятия");
+                return;
+            }
+
+            const event = await res.json();
+
+            eventStartDate = new Date(event.start_date);
+            eventEndDate = new Date(event.end_date);
+
+            const minValue = toDateTimeLocal(event.start_date);
+            const maxValue = toDateTimeLocal(event.end_date);
+
+            document.getElementById("session-start").min = minValue;
+            document.getElementById("session-start").max = maxValue;
+            document.getElementById("session-end").min = minValue;
+            document.getElementById("session-end").max = maxValue;
+
+            document.getElementById("event-date-hint").innerText =
+                `Сессия должна проходить в период мероприятия: ${formatDateTime(event.start_date)} — ${formatDateTime(event.end_date)}.`;
+
+        } catch (err) {
+            console.error(err);
+            showError("Ошибка соединения с сервером");
+        }
+    }
+
+    async function loadSession() {
+        const token = getCookie("access_token");
+
+        if (!token) {
+            showError("Пользователь не авторизован");
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/v1/sessions/${sessionId}`, {
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (!res.ok) {
+                showError("Ошибка загрузки сессии");
+                return;
+            }
+
+            const session = await res.json();
+
+            document.getElementById("session-title").value = session.title || "";
+            document.getElementById("session-description").value = session.description || "";
+            document.getElementById("session-start").value = toDateTimeLocal(session.start_date);
+            document.getElementById("session-end").value = toDateTimeLocal(session.end_date);
+            document.getElementById("session-location").value = session.location || "";
+
+        } catch (err) {
+            console.error(err);
+            showError("Ошибка соединения с сервером");
+        }
+    }
+
+    function validateSessionDates(startDate, endDate) {
+        if (!eventStartDate || !eventEndDate) {
+            return "Не удалось определить границы мероприятия";
+        }
+
+        if (endDate <= startDate) {
+            return "Дата окончания сессии должна быть позже даты начала";
+        }
+
+        if (startDate < eventStartDate) {
+            return "Дата начала сессии не может быть раньше даты начала мероприятия";
+        }
+
+        if (endDate > eventEndDate) {
+            return "Дата окончания сессии не может быть позже даты окончания мероприятия";
+        }
+
+        return null;
     }
 
     document.getElementById("session-form").addEventListener("submit", async (e) => {
         e.preventDefault();
+        hideError();
+
+        const token = getCookie("access_token");
+
+        if (!token) {
+            showError("Пользователь не авторизован");
+            return;
+        }
+
+        const startDateValue = document.getElementById("session-start").value;
+        const endDateValue = document.getElementById("session-end").value;
+
+        const startDate = new Date(startDateValue);
+        const endDate = new Date(endDateValue);
+
+        const validationError = validateSessionDates(startDate, endDate);
+
+        if (validationError) {
+            showError(validationError);
+            return;
+        }
 
         const data = {
             title: document.getElementById("session-title").value.trim(),
             description: document.getElementById("session-description").value.trim(),
-            start_date: document.getElementById("session-start").value,
-            end_date: document.getElementById("session-end").value,
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString(),
             location: document.getElementById("session-location").value.trim()
         };
 
-        const res = await fetch(`/api/v1/sessions/${sessionId}`, {
-            method: "PUT",
-            headers: {
-                "Authorization": "Bearer " + token,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
+        setSubmitLoading(true);
 
-        if (!res.ok) return alert("Ошибка при сохранении сессии");
-        alert("Сессия обновлена");
-        window.location.href = `/admin/events/${eventId}`;
+        try {
+            const res = await fetch(`/api/v1/sessions/${sessionId}`, {
+                method: "PUT",
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!res.ok) {
+                let message = "Ошибка при сохранении сессии";
+
+                try {
+                    const responseData = await res.json();
+                    message = responseData.detail || message;
+                } catch (err) {
+                    console.error(err);
+                }
+
+                showError(message);
+                return;
+            }
+
+            alert("Сессия обновлена");
+            window.location.href = `/admin/events/${eventId}`;
+
+        } catch (err) {
+            console.error(err);
+            showError("Ошибка соединения с сервером");
+        } finally {
+            setSubmitLoading(false);
+        }
     });
 
     function goBack() {
         window.location.href = `/admin/events/${eventId}`;
     }
 
-    document.addEventListener("DOMContentLoaded", loadSession);
+    document.addEventListener("DOMContentLoaded", async function () {
+        await loadEventBounds();
+        await loadSession();
+    });
 </script>
 
 {% endblock %}

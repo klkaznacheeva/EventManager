@@ -2,7 +2,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import or_, func, distinct
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.enum import (
@@ -262,9 +262,12 @@ class EventService:
         events = query.offset((data.page - 1) * data.limit).limit(data.limit).all()
 
         result_items = []
+        participant_role_id = UUID("27e9b47f-27d2-4e8c-97bd-30d72a2cf248")
+
         for event in events:
             participants_count = db.query(EventParticipant).filter(
-                EventParticipant.event_id == event.id
+                EventParticipant.event_id == event.id,
+                EventParticipant.role_id == participant_role_id
             ).count()
             event.participants_count = participants_count
 
@@ -353,9 +356,12 @@ class EventService:
         if participant:
             return participant
 
+        participant_role_id = UUID("27e9b47f-27d2-4e8c-97bd-30d72a2cf248")
+
         participant = EventParticipant(
             event_id=event_id,
-            user_id=user_id
+            user_id=user_id,
+            role_id=participant_role_id
         )
         db.add(participant)
         db.commit()
@@ -364,8 +370,45 @@ class EventService:
         return participant
 
     @staticmethod
-    def get_participants_count(
-        db: Session,
-        event_id: UUID
+    def leave_event(
+            db: Session,
+            event_id: UUID,
+            user_id: UUID
     ):
-        return db.query(EventParticipant).filter_by(event_id=event_id).count()
+        event = db.query(Event).filter(Event.id == event_id).first()
+
+        if not event:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Event not found"
+            )
+
+        participant = db.query(EventParticipant).filter_by(
+            event_id=event_id,
+            user_id=user_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Вы не записаны на это мероприятие"
+            )
+
+        db.delete(participant)
+        db.commit()
+
+        return True
+
+    @staticmethod
+    def get_participants_count(
+            db: Session,
+            event_id: UUID
+    ):
+        participant_role_id = UUID("27e9b47f-27d2-4e8c-97bd-30d72a2cf248")
+
+        return db.query(
+            func.count(distinct(EventParticipant.user_id))
+        ).filter(
+            EventParticipant.event_id == event_id,
+            EventParticipant.role_id == participant_role_id
+        ).scalar()

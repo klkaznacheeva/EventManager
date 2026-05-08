@@ -51,6 +51,7 @@ class OrganizerResponse(BaseModel):
 
 
 class SessionFileResponse(BaseModel):
+    id: UUID
     file_name: str
     url: str
 

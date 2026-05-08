@@ -130,3 +130,12 @@ class SessionService:
         db.delete(session)
         db.commit()
         return {"detail": "Сессия удалена"}
+
+    @staticmethod
+    def get_by_id(
+            db: Session,
+            session_id: UUID
+    ):
+        return db.query(SessionModel).filter(
+            SessionModel.id == session_id
+        ).first()

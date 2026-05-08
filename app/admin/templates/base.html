@@ -1,15 +1,36 @@
-<!-- app/templates/base.html -->
+<!-- app/admin/templates/base.html -->
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>{{ title }}</title>
+    <meta charset="UTF-8">
+    <title>{{ title or "Админ-панель" }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="/static/css/admin.css">
 </head>
+
 <body>
-    <header>
-        <h1>Admin Panel</h1>
-        <hr>
+<div class="admin-layout">
+    <header class="admin-header">
+        <div class="admin-header-inner">
+            <a href="/admin/dashboard" class="brand">
+                <div class="brand-logo">EM</div>
+                <div class="brand-text">
+                    <div class="brand-title">EventManager</div>
+                    <div class="brand-subtitle">Панель управления</div>
+                </div>
+            </a>
+
+            <nav class="admin-nav">
+                <a class="nav-link" href="/admin/dashboard">Мероприятия</a>
+                <a class="nav-link" href="/admin/profile">Профиль</a>
+            </nav>
+        </div>
     </header>
 
-    {% block content %}{% endblock %}
+    <main class="admin-main">
+        {% block content %}{% endblock %}
+    </main>
+</div>
 </body>
 </html>

@@ -1,45 +1,164 @@
+<!--app/admin/templates/profile.html-->
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Профиль</h2>
 
-<div>
-    <p><b>Имя:</b> <span id="first_name"></span></p>
-    <p><b>Фамилия:</b> <span id="last_name"></span></p>
-    <p><b>Отчество:</b> <span id="second_name"></span></p>
-    <p><b>Email:</b> <span id="email"></span></p>
-    <p><b>Номер телефона:</b> <span id="phone"></span></p>
-    <p><b>Дата рождения:</b> <span id="birth_date"></span></p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Профиль администратора</h1>
+        <p class="page-description">
+            Управление личными данными, аватаром, режимом работы и паролем.
+        </p>
+    </div>
+
+    <div class="btn-row">
+        <button class="btn btn-secondary" id="switch-mode-btn" onclick="switchMode()">
+            Сменить режим
+        </button>
+        <button class="btn btn-danger" onclick="logout()">
+            Выйти
+        </button>
+    </div>
 </div>
 
-<hr>
+<div class="profile-grid">
+    <section class="card profile-main-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Личные данные</h2>
+                <p class="card-subtitle">Основная информация аккаунта</p>
+            </div>
 
-<button id="switch-mode-btn" onclick="switchMode()">Сменить режим</button>
-<button onclick="enableEdit()">Редактировать</button>
-<button onclick="saveProfile()" style="display:none;" id="save-btn">Сохранить</button>
-<button onclick="logout()">Выйти</button>
+            <div class="btn-row">
+                <button class="btn btn-secondary" id="edit-btn" onclick="enableEdit()">
+                    Редактировать
+                </button>
+                <button class="btn btn-primary" onclick="saveProfile()" style="display:none;" id="save-btn">
+                    Сохранить
+                </button>
+                <button class="btn btn-ghost" onclick="cancelEdit()" style="display:none;" id="cancel-edit-btn">
+                    Отменить
+                </button>
+            </div>
+        </div>
 
-<h3>Аватар</h3>
-<img id="avatar" src="" width="150" style="display:none;"/>
-<br><br>
-<input type="file" id="avatar_input">
-<button onclick="uploadAvatar()">Загрузить</button>
+        <div class="card-body">
+            <div class="profile-info-list">
+                <div class="profile-info-item">
+                    <div class="profile-label">Имя</div>
+                    <div class="profile-value" id="first_name"></div>
+                </div>
 
-<hr>
+                <div class="profile-info-item">
+                    <div class="profile-label">Фамилия</div>
+                    <div class="profile-value" id="last_name"></div>
+                </div>
 
-<h3>Смена пароля</h3>
-<input type="password" id="old_password" placeholder="Старый пароль"><br><br>
-<input type="password" id="new_password" placeholder="Новый пароль"><br><br>
-<button onclick="changePassword()">Сменить пароль</button>
+                <div class="profile-info-item">
+                    <div class="profile-label">Отчество</div>
+                    <div class="profile-value" id="second_name"></div>
+                </div>
 
-<hr>
-<a href="/admin/dashboard">Назад к списку мероприятий</a>
+                <div class="profile-info-item">
+                    <div class="profile-label">Email</div>
+                    <div class="profile-value" id="email"></div>
+                </div>
+
+                <div class="profile-info-item">
+                    <div class="profile-label">Номер телефона</div>
+                    <div class="profile-value" id="phone"></div>
+                </div>
+
+                <div class="profile-info-item">
+                    <div class="profile-label">Дата рождения</div>
+                    <div class="profile-value" id="birth_date"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <aside class="profile-side">
+        <section class="card avatar-card">
+            <div class="card-body">
+                <div class="avatar-preview-wrap">
+                    <img id="avatar" src="" alt="Аватар" class="avatar-preview" style="display:none;">
+                    <div id="avatar-placeholder" class="avatar-placeholder">A</div>
+                </div>
+
+                <h3 class="side-title">Аватар</h3>
+                <p class="side-text">Загрузите изображение профиля администратора.</p>
+
+                <div class="file-upload">
+                    <input type="file" id="avatar_input" accept="image/*">
+                    <button class="btn btn-primary" onclick="uploadAvatar()">
+                        Загрузить
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card mode-card">
+            <div class="card-body">
+                <div class="mode-top">
+                    <span class="badge">Текущий режим</span>
+                </div>
+                <div class="mode-name" id="current-mode">Организатор</div>
+                <p class="side-text">
+                    Режим влияет на сценарий работы в системе.
+                </p>
+            </div>
+        </section>
+    </aside>
+</div>
+
+<section class="card password-card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Смена пароля</h2>
+            <p class="card-subtitle">Обновите пароль для защиты аккаунта</p>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <div class="password-grid">
+            <div>
+                <label for="old_password">Старый пароль</label>
+                <input type="password" id="old_password" placeholder="Введите старый пароль">
+            </div>
+
+            <div>
+                <label for="new_password">Новый пароль</label>
+                <input type="password" id="new_password" placeholder="Введите новый пароль">
+            </div>
+
+            <div class="password-action">
+                <button class="btn btn-primary" onclick="changePassword()">
+                    Сменить пароль
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="bottom-link">
+    <a href="/admin/dashboard">← Назад к списку мероприятий</a>
+</div>
 
 <script>
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
         if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    function setText(id, value) {
+        document.getElementById(id).innerText = value || "";
+    }
+
+    function setEditMode(isEditing) {
+        document.getElementById("save-btn").style.display = isEditing ? "inline-flex" : "none";
+        document.getElementById("cancel-edit-btn").style.display = isEditing ? "inline-flex" : "none";
+        document.getElementById("edit-btn").style.display = isEditing ? "none" : "inline-flex";
     }
 
     async function loadProfile() {
@@ -58,18 +177,26 @@
 
         const data = await res.json();
 
-        document.getElementById("first_name").innerText = data.first_name;
-        document.getElementById("last_name").innerText = data.last_name || "";
-        document.getElementById("second_name").innerText = data.second_name || "";
-        document.getElementById("email").innerText = data.email;
-        document.getElementById("phone").innerText = data.phone;
-        document.getElementById("birth_date").innerText = data.birth_date;
+        setText("first_name", data.first_name);
+        setText("last_name", data.last_name);
+        setText("second_name", data.second_name);
+        setText("email", data.email);
+        setText("phone", data.phone);
+        setText("birth_date", data.birth_date);
+
+        const avatar = document.getElementById("avatar");
+        const placeholder = document.getElementById("avatar-placeholder");
 
         if (data.avatar_url) {
-            const avatar = document.getElementById("avatar");
             avatar.src = data.avatar_url;
             avatar.style.display = "block";
+            placeholder.style.display = "none";
+        } else {
+            avatar.style.display = "none";
+            placeholder.style.display = "flex";
         }
+
+        setEditMode(false);
     }
 
     async function uploadAvatar() {
@@ -100,12 +227,18 @@
         }
 
         alert("Аватар загружен");
+        fileInput.value = "";
         loadProfile();
     }
 
     async function changePassword() {
         const oldPassword = document.getElementById("old_password").value;
         const newPassword = document.getElementById("new_password").value;
+
+        if (!oldPassword || !newPassword) {
+            alert("Заполните оба поля");
+            return;
+        }
 
         const token = getCookie("access_token");
 
@@ -128,19 +261,42 @@
 
         alert("Пароль успешно изменен");
 
-        document.getElementById("old_password").value = '';
-        document.getElementById("new_password").value = '';
+        document.getElementById("old_password").value = "";
+        document.getElementById("new_password").value = "";
+    }
+
+    function createInputForField(id) {
+        const el = document.getElementById(id);
+
+        if (document.getElementById(`input_${id}`)) {
+            return;
+        }
+
+        const value = el.innerText || "";
+        el.innerHTML = "";
+
+        const input = document.createElement("input");
+        input.id = `input_${id}`;
+        input.value = value;
+
+        if (id === "birth_date") {
+            input.type = "date";
+        } else if (id === "email") {
+            input.type = "email";
+        } else {
+            input.type = "text";
+        }
+
+        el.appendChild(input);
     }
 
     function enableEdit() {
-        ["first_name", "last_name", "second_name", "phone", "birth_date", "email"].forEach(id => {
-            const el = document.getElementById(id);
-            const value = el.innerText;
+        ["first_name", "last_name", "second_name", "phone", "birth_date", "email"].forEach(createInputForField);
+        setEditMode(true);
+    }
 
-            el.innerHTML = `<input id="input_${id}" value="${value || ''}">`;
-        });
-
-        document.getElementById("save-btn").style.display = "inline-block";
+    function cancelEdit() {
+        loadProfile();
     }
 
     async function saveProfile() {
@@ -173,14 +329,17 @@
         loadProfile();
     }
 
-    document.addEventListener("DOMContentLoaded", loadProfile);
     function getUserMode() {
         return localStorage.getItem("user_mode") || "organizer";
     }
 
     function renderMode() {
         const mode = getUserMode();
-        document.getElementById("current-mode").innerText =
+        const modeElement = document.getElementById("current-mode");
+
+        if (!modeElement) return;
+
+        modeElement.innerText =
             mode === "organizer" ? "Организатор" : "Участник";
     }
 
@@ -189,10 +348,15 @@
     }
 
     async function logout() {
-        await fetch("/api/v1/auth/logout", {method: "POST"});
+        await fetch("/api/v1/auth/logout", { method: "POST" });
         localStorage.removeItem("user_mode");
         window.location.href = "/admin/login";
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        loadProfile();
+        renderMode();
+    });
 </script>
 
 {% endblock %}

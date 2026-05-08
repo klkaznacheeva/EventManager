@@ -128,3 +128,18 @@ def edit_session_page(event_id: UUID, session_id: UUID, request: Request, user=D
         "user_name": f"{user.first_name} {user.last_name}"
     }
     return render_template("session_edit.html", context)
+
+@router.get("/sessions/{session_id}/comments", response_class=HTMLResponse)
+def session_comments_page(
+    request: Request,
+    session_id: UUID,
+    event_id: UUID,
+):
+    return render_template(
+        "session_comments.html",
+        {
+            "request": request,
+            "session_id": str(session_id),
+            "event_id": str(event_id)
+        }
+    )

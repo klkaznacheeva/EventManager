@@ -216,3 +216,121 @@ def join_event(event_id: str, db: Session = Depends(get_db), user=Depends(get_re
 
     EventService.join_event(db=db, event_id=UUID(event_id), user_id=user.id)
     return {"detail": "Вы успешно записались на мероприятие"}
+
+@router.post("/{event_id}/leave")
+def leave_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    EventService.leave_event(
+        db=db,
+        event_id=event_id,
+        user_id=current_user.id
+    )
+
+    return {"detail": "Event left"}
+
+@router.get("/{event_id}/latest-review-message")
+def get_latest_review_message(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    event = EventService.get_event_by_id(db, event_id)
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found"
+        )
+
+    # Если мероприятие уже не требует редактирования,
+    # актуальное сообщение в деталке не показываем
+    if event.status != EventStatus.NEEDS_EDIT.value:
+        return {
+            "item": None
+        }
+
+    message = EntityMessageService.get_last_message(
+        db=db,
+        entity_type="event",
+        entity_id=event_id,
+        type="review"
+    )
+
+    if not message:
+        return {
+            "item": None
+        }
+
+    author_name = "Система"
+
+    if message.author_id:
+        author = db.query(User).filter(User.id == message.author_id).first()
+
+        if author:
+            author_name = " ".join(
+                part for part in [
+                    author.first_name,
+                    author.last_name
+                ]
+                if part
+            ) or author.email or "Пользователь"
+
+    return {
+        "item": {
+            "id": str(message.id),
+            "type": message.type,
+            "message": message.message,
+            "author_id": str(message.author_id) if message.author_id else None,
+            "author_name": author_name,
+            "created_at": message.created_at.isoformat() if message.created_at else None
+        }
+    }
+
+@router.post("/{event_id}/submit-review")
+def submit_event_for_review(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    event = EventService.get_event_by_id(db, event_id)
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found"
+        )
+
+    if current_user.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin cannot submit event for review"
+        )
+
+    if str(event.organizer_id) != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can submit only your own event"
+        )
+
+    allowed_statuses = [
+        EventStatus.DRAFT.value,
+        EventStatus.NEEDS_EDIT.value
+    ]
+
+    if event.status not in allowed_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Event can be submitted for review only from draft or needs_edit status"
+        )
+
+    event.status = EventStatus.PENDING.value
+    db.commit()
+    db.refresh(event)
+
+    return {
+        "detail": "Event submitted for review",
+        "status": event.status
+    }

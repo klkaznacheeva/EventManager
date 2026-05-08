@@ -116,10 +116,10 @@ class FileService:
 
         db.commit()
 
-
     @staticmethod
     def get_session_files(db: Session, session_id: uuid.UUID):
         """Возвращает список файлов, прикрепленных к сессии"""
+
         attachments = db.query(FileAttachment, File).join(
             File, File.id == FileAttachment.file_id
         ).filter(
@@ -130,8 +130,53 @@ class FileService:
 
         return [
             {
+                "id": str(file.File.id),
                 "file_name": file.File.filename,
-                "url": f"/uploads/{file.File.storage_path.split('/')[-1]}"
+                "url": f"/uploads/{os.path.basename(file.File.storage_path)}"
             }
             for file in attachments
         ]
+
+    @staticmethod
+    def delete_session_file(
+            db: Session,
+            session_id: uuid.UUID,
+            file_id: uuid.UUID
+    ) -> bool:
+        """Удаляет один файл, прикрепленный к сессии"""
+
+        attachment = db.query(FileAttachment).filter(
+            FileAttachment.file_id == file_id,
+            FileAttachment.entity_type == EntityType.SESSION,
+            FileAttachment.entity_id == session_id,
+            FileAttachment.attachment_type == AttachmentType.SESSION_FILE
+        ).first()
+
+        if not attachment:
+            return False
+
+        db_file = db.query(File).filter(File.id == file_id).first()
+
+        if not db_file:
+            db.delete(attachment)
+            db.commit()
+            return True
+
+        storage_path = db_file.storage_path
+
+        db.delete(attachment)
+        db.flush()
+
+        other_attachments_count = db.query(FileAttachment).filter(
+            FileAttachment.file_id == file_id
+        ).count()
+
+        if other_attachments_count == 0:
+            if storage_path and os.path.exists(storage_path):
+                os.remove(storage_path)
+
+            db.delete(db_file)
+
+        db.commit()
+
+        return True

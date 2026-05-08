@@ -12,6 +12,8 @@ services:
       - ./migrations:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
+    networks:
+      - event_network
 
   backend:
     build: .
@@ -25,6 +27,30 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+    networks:
+      - event_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: event_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - event_network
 
 volumes:
   postgres_data:
+  pgadmin_data:
+
+networks:
+  event_network:
+    driver: bridge

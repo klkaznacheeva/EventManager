@@ -1,31 +1,83 @@
+<!-- app/admin/templates/event_edit.html -->
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Редактирование мероприятия</h2>
 
-<form id="edit-event-form">
-    <label>Название:</label><br>
-    <input type="text" id="title" required><br><br>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Редактирование мероприятия</h1>
+        <p class="page-description">
+            Обновите основную информацию мероприятия: название, описание, категорию, даты и место проведения.
+        </p>
+    </div>
 
-    <label>Описание:</label><br>
-    <textarea id="description" rows="5"></textarea><br><br>
+    <div class="btn-row">
+        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">
+            Назад к мероприятию
+        </a>
+    </div>
+</div>
 
-    <label>Категория:</label><br>
-    <select id="category_id"></select><br><br>
+<section class="card form-card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Данные мероприятия</h2>
+            <p class="card-subtitle">
+                После сохранения изменения будут применены к карточке мероприятия.
+            </p>
+        </div>
+    </div>
 
-    <label>Дата начала:</label><br>
-    <input type="datetime-local" id="start_date" required><br><br>
+    <div class="card-body">
+        <form id="edit-event-form" class="admin-form">
+            <div class="form-grid">
+                <div class="form-field form-field-wide">
+                    <label for="title">Название мероприятия</label>
+                    <input type="text" id="title" placeholder="Введите название мероприятия" required>
+                </div>
 
-    <label>Дата окончания:</label><br>
-    <input type="datetime-local" id="end_date" required><br><br>
+                <div class="form-field form-field-wide">
+                    <label for="description">Описание</label>
+                    <textarea id="description" rows="5" placeholder="Опишите мероприятие"></textarea>
+                </div>
 
-    <label>Местоположение:</label><br>
-    <input type="text" id="location"><br><br>
+                <div class="form-field">
+                    <label for="category_id">Категория</label>
+                    <select id="category_id" required>
+                        <option value="">Загрузка категорий...</option>
+                    </select>
+                </div>
 
-    <button type="submit">Сохранить</button>
-</form>
+                <div class="form-field">
+                    <label for="location">Местоположение</label>
+                    <input type="text" id="location" placeholder="Например: Москва, конференц-зал">
+                </div>
 
-<a href="/admin/events/{{ event_id }}">Назад к мероприятию</a>
+                <div class="form-field">
+                    <label for="start_date">Дата и время начала</label>
+                    <input type="datetime-local" id="start_date" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="end_date">Дата и время окончания</label>
+                    <input type="datetime-local" id="end_date" required>
+                </div>
+            </div>
+
+            <p id="error" class="error-alert" style="display:none;"></p>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    Сохранить изменения
+                </button>
+
+                <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
 
 <script>
     const eventId = "{{ event_id }}";
@@ -33,77 +85,178 @@
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
+        if (parts.length === 2) return parts.pop().split(";").shift();
         return null;
     }
 
-    // Загружаем текущее мероприятие
+    function showError(message) {
+        const error = document.getElementById("error");
+        error.innerText = message;
+        error.style.display = "block";
+    }
+
+    function hideError() {
+        const error = document.getElementById("error");
+        error.innerText = "";
+        error.style.display = "none";
+    }
+
+    function setSubmitLoading(isLoading) {
+        const submitBtn = document.getElementById("submit-btn");
+
+        submitBtn.disabled = isLoading;
+        submitBtn.innerText = isLoading ? "Сохранение..." : "Сохранить изменения";
+    }
+
+    function toDateTimeLocal(value) {
+        if (!value) return "";
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return "";
+        }
+
+        return date.toISOString().slice(0, 16);
+    }
+
     async function loadEvent() {
         const token = getCookie("access_token");
+
+        if (!token) {
+            showError("Пользователь не авторизован");
+            return;
+        }
+
         const res = await fetch(`/api/v1/events/${eventId}`, {
-            headers: {"Authorization": "Bearer " + token}
+            headers: {
+                "Authorization": "Bearer " + token
+            }
         });
-        if (!res.ok) return alert("Ошибка загрузки мероприятия");
+
+        if (!res.ok) {
+            showError("Ошибка загрузки мероприятия");
+            return;
+        }
+
         const event = await res.json();
 
-        document.getElementById("title").value = event.title;
+        document.getElementById("title").value = event.title || "";
         document.getElementById("description").value = event.description || "";
-        document.getElementById("start_date").value = new Date(event.start_date).toISOString().slice(0,16);
-        document.getElementById("end_date").value = new Date(event.end_date).toISOString().slice(0,16);
+        document.getElementById("start_date").value = toDateTimeLocal(event.start_date);
+        document.getElementById("end_date").value = toDateTimeLocal(event.end_date);
         document.getElementById("location").value = event.location || "";
 
-        // Загружаем категории
-       await loadCategories(event.category_id);
+        await loadCategories(event.category_id || event.category?.id || event.category?.value);
     }
 
     async function loadCategories(selectedId) {
         const token = getCookie("access_token");
-        const res = await fetch("/api/v1/enums/categories", {
-            headers: {"Authorization": "Bearer " + token}
-        });
-        if (!res.ok) return;
-
-        const data = await res.json(); // { items: [...] }
         const select = document.getElementById("category_id");
-        select.innerHTML = ""; // очищаем старые options
 
-        data.items.forEach(cat => {
-            const opt = document.createElement("option");
-            opt.value = cat.value;   // используем "value"
-            opt.text = cat.label;    // используем "label"
-            if (cat.value === selectedId) opt.selected = true;
-            select.appendChild(opt);
-        });
+        try {
+            const res = await fetch("/api/v1/enums/categories", {
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (!res.ok) {
+                select.innerHTML = `<option value="">Ошибка загрузки категорий</option>`;
+                return;
+            }
+
+            const data = await res.json();
+
+            select.innerHTML = `<option value="">Выберите категорию</option>`;
+
+            data.items.forEach(cat => {
+                const opt = document.createElement("option");
+                opt.value = cat.value;
+                opt.textContent = cat.label;
+
+                if (String(cat.value) === String(selectedId)) {
+                    opt.selected = true;
+                }
+
+                select.appendChild(opt);
+            });
+
+        } catch (err) {
+            console.error(err);
+            select.innerHTML = `<option value="">Ошибка загрузки категорий</option>`;
+        }
     }
 
-    // Сохраняем изменения
     document.getElementById("edit-event-form").addEventListener("submit", async (e) => {
         e.preventDefault();
+        hideError();
+
         const token = getCookie("access_token");
 
+        if (!token) {
+            showError("Пользователь не авторизован");
+            return;
+        }
+
+        const startDateValue = document.getElementById("start_date").value;
+        const endDateValue = document.getElementById("end_date").value;
+
+        const startDate = new Date(startDateValue);
+        const endDate = new Date(endDateValue);
+
+        if (endDate <= startDate) {
+            showError("Дата окончания должна быть позже даты начала");
+            return;
+        }
+
         const data = {
-            title: document.getElementById("title").value,
-            description: document.getElementById("description").value,
-            start_date: new Date(document.getElementById("start_date").value).toISOString(),
-            end_date: new Date(document.getElementById("end_date").value).toISOString(),
-            location: document.getElementById("location").value,
+            title: document.getElementById("title").value.trim(),
+            description: document.getElementById("description").value.trim(),
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString(),
+            location: document.getElementById("location").value.trim(),
             category_id: document.getElementById("category_id").value
         };
 
-        const res = await fetch(`/api/v1/events/${eventId}`, {
-            method: "PUT",
-            headers: {
-                "Authorization": "Bearer " + token,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
+        setSubmitLoading(true);
 
-        if (!res.ok) return alert("Ошибка сохранения");
-        alert("Мероприятие обновлено");
-        window.location.href = `/admin/events/${eventId}`;
+        try {
+            const res = await fetch(`/api/v1/events/${eventId}`, {
+                method: "PUT",
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!res.ok) {
+                let message = "Ошибка сохранения мероприятия";
+
+                try {
+                    const responseData = await res.json();
+                    message = responseData.detail || message;
+                } catch (err) {
+                    console.error(err);
+                }
+
+                showError(message);
+                return;
+            }
+
+            alert("Мероприятие обновлено");
+            window.location.href = `/admin/events/${eventId}`;
+
+        } catch (err) {
+            console.error(err);
+            showError("Ошибка соединения с сервером");
+        } finally {
+            setSubmitLoading(false);
+        }
     });
 
     document.addEventListener("DOMContentLoaded", loadEvent);
 </script>
+
 {% endblock %}

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Комментарии к сессии</h1>
+        <p class="page-description">
+            Здесь можно посмотреть обсуждение сессии и оставить новый комментарий.
+        </p>
+    </div>
+
+    <div class="btn-row">
+        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">
+            Назад к мероприятию
+        </a>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Список комментариев</h2>
+            <p class="card-subtitle">Сообщения участников по выбранной сессии</p>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <div id="comments-list" class="sessions-list">
+            <div class="loading-state">Загрузка комментариев...</div>
+        </div>
+    </div>
+</section>
+
+<section class="card action-card">
+    <div class="card-body">
+        <h3 class="action-title">Оставить комментарий</h3>
+
+        <textarea
+            id="comment-message"
+            rows="5"
+            placeholder="Введите текст комментария"
+            style="width: 100%; margin-top: 12px;"
+        ></textarea>
+
+        <div class="btn-row" style="margin-top: 16px;">
+            <button class="btn btn-primary" onclick="sendComment()">
+                Отправить комментарий
+            </button>
+        </div>
+    </div>
+</section>
+
+<script>
+    const sessionId = "{{ session_id }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return "";
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function formatDate(value) {
+        if (!value) return "Дата не указана";
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return "Дата не указана";
+        }
+
+        return date.toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    async function loadComments() {
+        const token = getCookie("access_token");
+        const container = document.getElementById("comments-list");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    Ошибка загрузки комментариев.
+                </div>
+            `;
+            return;
+        }
+
+        const data = await res.json();
+        const comments = data.items || [];
+
+        if (comments.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    Комментариев пока нет.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = "";
+
+        comments.forEach(comment => {
+            const div = document.createElement("div");
+            div.className = "session-card";
+
+            div.innerHTML = `
+                <div class="session-top">
+                    <div>
+                        <h3 class="session-title">${escapeHtml(comment.author_name || "Пользователь")}</h3>
+
+                        <div class="session-meta">
+                            <span>${formatDate(comment.created_at)}</span>
+                        </div>
+
+                        <div class="session-description">
+                            ${escapeHtml(comment.message)}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(div);
+        });
+    }
+
+    async function sendComment() {
+        const token = getCookie("access_token");
+        const textarea = document.getElementById("comment-message");
+        const message = textarea.value.trim();
+
+        if (!message) {
+            alert("Введите текст комментария");
+            return;
+        }
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                message: message
+            })
+        });
+
+        if (!res.ok) {
+            let errorMessage = "Ошибка отправки комментария";
+
+            try {
+                const data = await res.json();
+                errorMessage = data.detail || errorMessage;
+            } catch (err) {
+                console.error(err);
+            }
+
+            alert(errorMessage);
+            return;
+        }
+
+        textarea.value = "";
+        await loadComments();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadComments();
+    });
+</script>
+
+{% endblock %}

@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from app.core.enum import RoleList, EntityType, AttachmentType
+from starlette import status
+from starlette.responses import Response
+
+from app.core.enum import RoleList, EntityType, AttachmentType, SessionStatus
 from app.db.database import get_db
 from app.core.jwt_dependency import get_required_user
 from app.models import User, Role, EventParticipant
@@ -13,7 +16,9 @@ from app.schemas.session import (
     SessionResponse,
     SessionListResponse, SessionUpdateRequest
 )
+from app.schemas.session_comment import SessionCommentCreate
 from app.services.file_service import FileService
+from app.services.session_comment_service import SessionCommentService
 from app.services.session_service import SessionService
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["Sessions"])
@@ -114,3 +119,138 @@ def upload_session_file(
     )
 
     return {"file_id": str(db_file.id)}
+
+@router.delete(
+    "/{session_id}/files/{file_id}"
+)
+def delete_session_file(
+    session_id: UUID,
+    file_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    """Удалить закрепленный файл сессии"""
+
+    deleted = FileService.delete_session_file(
+        db=db,
+        session_id=session_id,
+        file_id=file_id
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Файл сессии не найден"
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.post("/{session_id}/publish")
+def publish_session(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    session = SessionService.get_by_id(db, session_id)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.status = SessionStatus.PUBLISHED.value
+
+    db.commit()
+
+    return {"detail": "Session published"}
+
+@router.post("/{session_id}/unpublish")
+def unpublish_session(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    session = SessionService.get_by_id(db, session_id)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.status = SessionStatus.DRAFT.value
+
+    db.commit()
+
+    return {"detail": "Session unpublished"}
+
+
+@router.post("/{session_id}/complete")
+def complete_session(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    session = SessionService.get_by_id(db, session_id)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session.status != SessionStatus.PUBLISHED.value:
+        raise HTTPException(
+            status_code=400,
+            detail="Only published session can be completed"
+        )
+
+    session.status = SessionStatus.COMPLETED.value
+
+    db.commit()
+
+    return {"detail": "Session completed"}
+
+@router.get("/{session_id}/comments")
+def get_session_comments(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    comments = SessionCommentService.get_comments(
+        db=db,
+        session_id=session_id
+    )
+
+    items = []
+
+    for comment in comments:
+        author = comment.author
+
+        first_name = getattr(author, "first_name", "") if author else ""
+        last_name = getattr(author, "last_name", "") if author else ""
+        author_name = f"{first_name} {last_name}".strip()
+
+        items.append({
+            "id": str(comment.id),
+            "message": comment.message,
+            "created_at": comment.created_at.isoformat() if comment.created_at else None,
+            "author_id": str(comment.author_id) if comment.author_id else None,
+            "author_name": author_name or "Пользователь"
+        })
+
+    return {
+        "items": items
+    }
+
+
+@router.post("/{session_id}/comments")
+def create_session_comment(
+    session_id: UUID,
+    model: SessionCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    comment = SessionCommentService.create_comment(
+        db=db,
+        session_id=session_id,
+        user_id=current_user.id,
+        message=model.message
+    )
+
+    return {
+        "id": str(comment.id),
+        "detail": "Comment created"
+    }

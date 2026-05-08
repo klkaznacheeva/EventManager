@@ -1,57 +1,190 @@
+<!-- app/admin/templates/event_detail.html -->
 {% extends "base.html" %}
 
 {% block content %}
-<h1 id="event-title">Загрузка...</h1>
 
-<div id="event-info" style="margin-bottom: 20px;">
-    <p><strong>Категория:</strong> <span id="event-category"></span></p>
-    <p><strong>Описание:</strong> <span id="event-description"></span></p>
-    <p><strong>Дата:</strong> <span id="event-dates"></span></p>
-    <p><strong>Местоположение:</strong> <span id="event-location"></span></p>
-    <p><strong>Статус:</strong> <span id="event-status"></span></p>
-    <p><strong>Участники:</strong> <span id="event-participants-count">0</span></p>
-    <p><strong>Организатор:</strong> <span id="event-organizer"></span></p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title" id="event-title">Загрузка...</h1>
+        <p class="page-description">
+            Детальная информация о мероприятии, сессиях, материалах и статусе проверки.
+        </p>
+    </div>
 
-    <div id="event-banner-container" style="margin-top: 15px;">
-        <p><strong>Баннер мероприятия:</strong></p>
-        <img id="event-banner-img" src="" alt="Баннер мероприятия" style="max-width:300px; display:none; margin-bottom:10px;">
-        <input type="file" id="event-banner-input" style="display:none;" onchange="uploadEventBanner()">
-        <button onclick="document.getElementById('event-banner-input').click()">Загрузить баннер</button>
+    <div class="btn-row">
+        <a href="/admin/dashboard" class="btn btn-ghost">
+            Назад к списку
+        </a>
     </div>
 </div>
 
-<hr>
+<section class="event-detail-grid">
+    <div class="card event-info-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Информация о мероприятии</h2>
+                <p class="card-subtitle">Основные сведения и параметры мероприятия</p>
+            </div>
+            <span class="status-badge" id="event-status">Загрузка...</span>
+        </div>
 
-<!-- 👨‍💼 Действия организатора -->
-<div id="organizer-actions" style="display:none; margin-top: 15px;">
-    <button onclick="publishEvent()">Опубликовать мероприятие</button>
+        <div class="card-body">
+            <div class="event-info-list">
+                <div class="event-info-item">
+                    <div class="event-info-label">Категория</div>
+                    <div class="event-info-value" id="event-category">-</div>
+                </div>
+
+                <div class="event-info-item event-info-wide">
+                    <div class="event-info-label">Описание</div>
+                    <div class="event-info-value" id="event-description">-</div>
+                </div>
+
+                <div class="event-info-item">
+                    <div class="event-info-label">Дата проведения</div>
+                    <div class="event-info-value" id="event-dates">-</div>
+                </div>
+
+                <div class="event-info-item">
+                    <div class="event-info-label">Местоположение</div>
+                    <div class="event-info-value" id="event-location">-</div>
+                </div>
+
+                <div class="event-info-item">
+                    <div class="event-info-label">Участники</div>
+                    <div class="event-info-value" id="event-participants-count">0</div>
+                </div>
+
+                <div class="event-info-item">
+                    <div class="event-info-label">Организатор</div>
+                    <div class="event-info-value" id="event-organizer">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <aside class="card banner-card" id="event-banner-container">
+        <div class="card-body">
+            <div class="banner-preview">
+                <img id="event-banner-img" src="" alt="Баннер мероприятия" style="display:none;">
+                <div id="event-banner-placeholder" class="banner-placeholder">
+                    Баннер не загружен
+                </div>
+            </div>
+
+            <h3 class="side-title">Баннер мероприятия</h3>
+            <p class="side-text">
+                Изображение используется как визуальное оформление карточки мероприятия.
+            </p>
+
+            <div class="banner-actions" id="event-banner-actions">
+                <input type="file" id="event-banner-input" style="display:none;" onchange="uploadEventBanner()"
+                       accept="image/*">
+                <button class="btn btn-primary" onclick="document.getElementById('event-banner-input').click()">
+                    Загрузить баннер
+                </button>
+            </div>
+        </div>
+    </aside>
+</section>
+
+<section class="review-message-wrap" id="review-message-card" style="display:none;">
+    <div class="card review-message-card">
+        <div class="review-message-badge">Требует внимания</div>
+
+        <div class="review-message-body">
+            <div class="review-message-icon">!</div>
+
+            <div class="review-message-content">
+                <h3 class="review-message-title">Требуется доработка</h3>
+                <p class="review-message-text" id="review-message-text"></p>
+                <div class="review-message-meta" id="review-message-meta"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="card action-card" id="organizer-actions" style="display:none;">
+    <div class="card-body action-card-body">
+        <div>
+            <h3 class="action-title">Отправка на проверку</h3>
+            <p class="action-text">
+                После отправки мероприятие перейдёт в статус «На проверке» и станет доступно администратору для
+                модерации.
+            </p>
+        </div>
+
+        <button class="btn btn-primary" onclick="submitEventForReview()" id="submit-review-btn">
+            Отправить на проверку
+        </button>
+    </div>
+</section>
+
+<section class="card action-card" id="admin-actions" style="display:none;">
+    <div class="card-body action-card-body">
+        <div>
+            <h3 class="action-title">Проверка мероприятия</h3>
+            <p class="action-text">
+                Администратор может подтвердить мероприятие или отправить его на доработку с указанием причины.
+            </p>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn btn-primary" onclick="markReviewed()">
+                Проверено
+            </button>
+            <button class="btn btn-secondary" onclick="showNeedsEditPopup()">
+                Требует редактирования
+            </button>
+        </div>
+    </div>
+</section>
+
+<section class="card sessions-card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Сессии</h2>
+            <p class="card-subtitle">
+                Список сессий, входящих в программу мероприятия, и прикреплённые материалы.
+            </p>
+        </div>
+
+        <button class="btn btn-primary" id="create-session-btn" onclick="goToCreateSession()" style="display:none;">
+            Создать сессию
+        </button>
+    </div>
+
+    <div class="card-body">
+        <div id="event-sessions" class="sessions-list">
+            <div class="loading-state">Загрузка сессий...</div>
+        </div>
+    </div>
+</section>
+
+<div id="needs-edit-popup" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Причина доработки</h3>
+            <button class="modal-close" onclick="hideNeedsEditPopup()">×</button>
+        </div>
+
+        <p class="modal-text">
+            Укажите, что именно организатору нужно исправить в мероприятии.
+        </p>
+
+        <textarea id="edit-reason" rows="5"
+                  placeholder="Например: необходимо уточнить описание, дату или место проведения"></textarea>
+
+        <div class="modal-actions">
+            <button class="btn btn-primary" onclick="submitNeedsEdit()">
+                Отправить
+            </button>
+            <button class="btn btn-ghost" onclick="hideNeedsEditPopup()">
+                Отмена
+            </button>
+        </div>
+    </div>
 </div>
-
-<h2>Сессии</h2>
-<button id="create-session-btn" onclick="goToCreateSession()" style="display:none; margin-bottom: 15px;">
-    Создать сессию
-</button>
-
-<div id="event-sessions">
-    <p>Загрузка сессий...</p>
-</div>
-
-<!-- 👑 Действия админа -->
-<div id="admin-actions" style="display:none; margin-top:20px;">
-    <button onclick="markReviewed()">Проверено</button>
-    <button onclick="showNeedsEditPopup()">Требует редактирования</button>
-</div>
-
-<!-- Попап для редактирования -->
-<div id="needs-edit-popup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
-     background:white; padding:20px; border:1px solid #ccc; z-index:100;">
-    <h3>Укажите причину редактирования</h3>
-    <textarea id="edit-reason" rows="4" cols="50"></textarea><br><br>
-    <button onclick="submitNeedsEdit()">Отправить</button>
-    <button onclick="hideNeedsEditPopup()">Отмена</button>
-</div>
-
-<a href="/admin/dashboard" style="display:block; margin-top:20px;">Назад к списку мероприятий</a>
 
 <script>
     const userRole = "{{ user_role }}";
@@ -59,7 +192,7 @@
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
+        if (parts.length === 2) return parts.pop().split(";").shift();
         return null;
     }
 
@@ -67,201 +200,735 @@
         return localStorage.getItem("user_mode") || "organizer";
     }
 
-    // --- Загрузка мероприятия и сессий ---
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return "";
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function formatDate(value) {
+        if (!value) return "Не указано";
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return "Не указано";
+        }
+
+        return date.toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    function getStatusClass(statusValue) {
+        const status = String(statusValue || "").toLowerCase();
+
+        if (status.includes("published") || status.includes("опублик")) {
+            return "status-published";
+        }
+
+        if (status.includes("reviewed") || status.includes("провер")) {
+            return "status-reviewed";
+        }
+
+        if (status.includes("pending") || status.includes("moderation")) {
+            return "status-pending";
+        }
+
+        if (status.includes("draft") || status.includes("чернов")) {
+            return "status-draft";
+        }
+
+        if (
+            status.includes("rejected") ||
+            status.includes("needs") ||
+            status.includes("доработ") ||
+            status.includes("отклон")
+        ) {
+            return "status-needs-edit";
+        }
+
+        return "";
+    }
+
+    function isNeedsEditStatus(event) {
+        const status = String(event.status || "").toLowerCase();
+        const statusLabel = String(event.status_label || "").toLowerCase();
+
+        return (
+            status === "needs_edit" ||
+            status === "needs-edit" ||
+            status.includes("needs") ||
+            statusLabel.includes("доработ")
+        );
+    }
+
+    function renderReviewMessage(message) {
+        const card = document.getElementById("review-message-card");
+        const text = document.getElementById("review-message-text");
+        const meta = document.getElementById("review-message-meta");
+
+        if (!card || !text || !meta) return;
+
+        if (!message) {
+            card.style.display = "none";
+            text.innerText = "";
+            meta.innerText = "";
+            return;
+        }
+
+        card.style.display = "block";
+        text.innerText = message.message || "";
+
+        const authorText = message.author_name || "Администратор";
+        const dateText = message.created_at ? formatDate(message.created_at) : "Дата не указана";
+
+        meta.innerText = `${authorText} · ${dateText}`;
+    }
+
+    async function loadLatestReviewMessage(eventId) {
+        const token = getCookie("access_token");
+
+        try {
+            const res = await fetch(`/api/v1/events/${eventId}/latest-review-message`, {
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (!res.ok) {
+                renderReviewMessage(null);
+                return;
+            }
+
+            const data = await res.json();
+
+            renderReviewMessage(data.item);
+
+        } catch (err) {
+            console.error(err);
+            renderReviewMessage(null);
+        }
+    }
+
+    function resetRoleActions() {
+        document.getElementById("admin-actions").style.display = "none";
+        document.getElementById("organizer-actions").style.display = "none";
+        document.getElementById("create-session-btn").style.display = "none";
+    }
+
     async function loadEvent(eventId) {
         const token = getCookie("access_token");
         if (!token) return;
 
+        resetRoleActions();
+
         try {
             const res = await fetch(`/api/v1/events/${eventId}`, {
-                headers: {"Authorization": "Bearer " + token, "X-User-Mode": getUserMode()}
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "X-User-Mode": getUserMode()
+                }
             });
-            if (!res.ok) return alert("Ошибка получения мероприятия");
+
+            if (!res.ok) {
+                alert("Ошибка получения мероприятия");
+                return;
+            }
+
             const event = await res.json();
 
-            // --- Данные мероприятия ---
-            document.getElementById("event-title").innerText = event.title;
+            const statusText = event.status_label || event.status || "Не указан";
+            const statusElement = document.getElementById("event-status");
+
+            document.getElementById("event-title").innerText = event.title || "Мероприятие";
             document.getElementById("event-category").innerText = event.category?.name || "-";
             document.getElementById("event-description").innerText = event.description || "-";
             document.getElementById("event-dates").innerText =
-                `${new Date(event.start_date).toLocaleString()} — ${new Date(event.end_date).toLocaleString()}`;
+                `${formatDate(event.start_date)} — ${formatDate(event.end_date)}`;
             document.getElementById("event-location").innerText = event.location || "-";
-            document.getElementById("event-status").innerText = event.status_label || event.status;
-            document.getElementById("event-participants-count").innerText = event.participants_count;
-            document.getElementById("event-organizer").innerText =
-                `${event.organizer.first_name} ${event.organizer.last_name || ""}`;
+            document.getElementById("event-participants-count").innerText = event.participants_count ?? 0;
 
-            // --- Баннер мероприятия ---
-            const bannerImg = document.getElementById("event-banner-img");
-            if(event.banner_url){
-                bannerImg.src = event.banner_url;
-                bannerImg.style.display = "block";
-            } else bannerImg.style.display = "none";
+            const organizerFirstName = event.organizer?.first_name || "";
+            const organizerLastName = event.organizer?.last_name || "";
+            const organizerName = `${organizerFirstName} ${organizerLastName}`.trim();
 
-            // Кнопка загрузки баннера только для организатора
-            if(getUserMode() === "organizer"){
-                document.getElementById("event-banner-input").style.display = "inline-block";
-                document.querySelector("#event-banner-container button").style.display = "inline-block";
-            } else {
-                document.getElementById("event-banner-input").style.display = "none";
-                document.querySelector("#event-banner-container button").style.display = "none";
+            document.getElementById("event-organizer").innerText = organizerName || "-";
+
+            statusElement.innerText = statusText;
+            statusElement.className = `status-badge ${getStatusClass(event.status || event.status_label)}`;
+
+            renderReviewMessage(null);
+
+            if (isNeedsEditStatus(event)) {
+                await loadLatestReviewMessage(event.id);
             }
 
-            // --- Сессии ---
-            const sessionsContainer = document.getElementById("event-sessions");
-            sessionsContainer.innerHTML = "";
+            renderEventBanner(event);
+            renderSessions(event);
 
-            if(event.sessions && event.sessions.length > 0){
-                event.sessions.forEach(session => {
-                    const sessionDiv = document.createElement("div");
-                    sessionDiv.style.border = "1px solid #ccc";
-                    sessionDiv.style.padding = "10px";
-                    sessionDiv.style.marginBottom = "10px";
-                    sessionDiv.style.borderRadius = "5px";
-
-                    let sessionHTML = `
-                        <strong>${session.title}</strong> — ${new Date(session.start_date).toLocaleString()} — ${new Date(session.end_date).toLocaleString()}
-                        ${session.location ? `(${session.location})` : ""} ${session.status_label ? `[${session.status_label}]` : ""}
-                    `;
-
-                    // --- Файлы сессии ---
-                    if(session.files && session.files.length > 0){
-                        sessionHTML += `<ul style="margin-top:5px;">`;
-                        session.files.forEach(f => {
-                            sessionHTML += `<li><a href="${f.url}" target="_blank">${f.file_name}</a></li>`;
-                        });
-                        sessionHTML += `</ul>`;
-                    }
-
-                    sessionDiv.innerHTML = sessionHTML;
-
-                    // --- Кнопки только для организатора ---
-                    const mode = getUserMode();
-                    if(mode === "organizer"){
-                        const uploadFileDiv = document.createElement("div");
-                        uploadFileDiv.style.marginTop = "5px";
-
-                        const fileInput = document.createElement("input");
-                        fileInput.type = "file";
-                        fileInput.id = `file-input-${session.id}`;
-                        fileInput.style.display = "none";
-                        fileInput.onchange = () => uploadSessionFile(session.id);
-
-                        const fileBtn = document.createElement("button");
-                        fileBtn.innerText = "Добавить файл";
-                        fileBtn.onclick = () => fileInput.click();
-
-                        uploadFileDiv.appendChild(fileInput);
-                        uploadFileDiv.appendChild(fileBtn);
-                        sessionDiv.appendChild(uploadFileDiv);
-
-                        // Редактировать и удалить сессию
-                        const editBtn = document.createElement("button");
-                        editBtn.innerText = "Редактировать";
-                        editBtn.style.marginLeft="10px";
-                        editBtn.onclick = () => goToEditSession(event.id, session.id);
-
-                        const delBtn = document.createElement("button");
-                        delBtn.innerText = "Удалить";
-                        delBtn.style.marginLeft="5px";
-                        delBtn.onclick = () => deleteSession(session.id);
-
-                        sessionDiv.appendChild(editBtn);
-                        sessionDiv.appendChild(delBtn);
-                    }
-
-                    sessionsContainer.appendChild(sessionDiv);
-                });
-            } else {
-                sessionsContainer.innerHTML = "<p>Сессий пока нет.</p>";
-            }
-
-            // --- Роли ---
             const mode = getUserMode();
-            if(userRole==="admin" && event.status==="draft") document.getElementById("admin-actions").style.display="block";
-            if(userRole!=="admin" && mode==="organizer"){
-                document.getElementById("create-session-btn").style.display="inline-block";
-                if(event.status==="draft") document.getElementById("organizer-actions").style.display="block";
+            const isOrganizerMode = userRole !== "admin" && mode === "organizer";
+
+        if (userRole === "admin" && event.status === "pending") {
+            document.getElementById("admin-actions").style.display = "block";
+        }
+
+        if (isOrganizerMode) {
+            document.getElementById("create-session-btn").style.display = "inline-flex";
+
+            if (event.status === "draft" || event.status === "needs_edit") {
+                document.getElementById("organizer-actions").style.display = "block";
+
+                const submitBtn = document.getElementById("submit-review-btn");
+
+                if (submitBtn) {
+                    submitBtn.innerText =
+                        event.status === "needs_edit"
+                            ? "Отправить повторно на проверку"
+                            : "Отправить на проверку";
+                }
             }
-        } catch(err){
+        }
+
+        } catch (err) {
             console.error(err);
             alert("Ошибка загрузки");
         }
     }
 
-    // --- ADMIN & ORGANIZER FUNCTIONS ---
- async function markReviewed() {
+    function renderEventBanner(event) {
+        const bannerImg = document.getElementById("event-banner-img");
+        const placeholder = document.getElementById("event-banner-placeholder");
+        const bannerActions = document.getElementById("event-banner-actions");
+
+        if (event.banner_url) {
+            bannerImg.src = event.banner_url;
+            bannerImg.style.display = "block";
+            placeholder.style.display = "none";
+        } else {
+            bannerImg.style.display = "none";
+            placeholder.style.display = "flex";
+        }
+
+        const canEditBanner = userRole !== "admin" && getUserMode() === "organizer";
+        bannerActions.style.display = canEditBanner ? "block" : "none";
+    }
+
+    function renderSessions(event) {
+        const sessionsContainer = document.getElementById("event-sessions");
+        sessionsContainer.innerHTML = "";
+
+        let sessions = event.sessions || [];
+
+        if (getUserMode() === "participant") {
+            sessions = sessions.filter(session => {
+                return session.status === "published" || session.status === "completed";
+            });
+        }
+
+        if (sessions.length === 0) {
+            sessionsContainer.innerHTML = `
+                <div class="empty-state">
+                    Сессий пока нет.
+                </div>
+            `;
+            return;
+        }
+
+            sessions.forEach(session => {
+            const sessionDiv = document.createElement("div");
+            sessionDiv.className = "session-card";
+
+            const sessionStatus = session.status_label || session.status || "";
+            const sessionLocation = session.location || "Место не указано";
+            const sessionDescription = session.description || "";
+
+            let filesHtml = "";
+
+            if (session.files && session.files.length > 0) {
+                filesHtml += `
+                    <div class="session-files">
+                        <h4 class="session-files-title">Материалы сессии</h4>
+                        <ul class="session-files-list">
+                `;
+
+                session.files.forEach(file => {
+                    const fileId = file.id || file.file_id;
+                    const canDeleteFile = userRole !== "admin" && getUserMode() === "organizer" && fileId;
+
+                    filesHtml += `
+                        <li class="session-file-item">
+                            <a href="${escapeHtml(file.url)}" target="_blank" class="session-file-link">
+                                ${escapeHtml(file.file_name || "Файл")}
+                            </a>
+
+                            ${
+                                canDeleteFile
+                                    ? `<button
+                                            type="button"
+                                            class="file-delete-btn"
+                                            onclick="deleteSessionFile('${session.id}', '${fileId}')"
+                                       >
+                                            Удалить
+                                       </button>`
+                                    : ""
+                            }
+                        </li>
+                    `;
+                });
+
+                filesHtml += `
+                        </ul>
+                    </div>
+                `;
+
+            }
+
+            sessionDiv.innerHTML = `
+                <div class="session-top">
+                    <div>
+                        <h3 class="session-title">${escapeHtml(session.title || "Сессия")}</h3>
+
+                        <div class="session-meta">
+                            <span>${formatDate(session.start_date)} — ${formatDate(session.end_date)}</span>
+                            <span>${escapeHtml(sessionLocation)}</span>
+                        </div>
+
+                        ${
+                            sessionDescription
+                                ? `<div class="session-description">${escapeHtml(sessionDescription)}</div>`
+                                : ""
+                        }
+                    </div>
+
+                    ${
+                        sessionStatus
+                            ? `<span class="status-badge ${getStatusClass(session.status || session.status_label)}">
+                                    ${escapeHtml(sessionStatus)}
+                               </span>`
+                            : ""
+                    }
+                </div>
+
+                ${filesHtml}
+            `;
+
+            const isOrganizerMode = userRole !== "admin" && getUserMode() === "organizer";
+
+            if (isOrganizerMode) {
+                const actionsDiv = document.createElement("div");
+                actionsDiv.className = "session-actions";
+
+                const fileInput = document.createElement("input");
+                fileInput.type = "file";
+                fileInput.id = `file-input-${session.id}`;
+                fileInput.style.display = "none";
+                fileInput.onchange = () => uploadSessionFile(session.id);
+
+                const fileBtn = document.createElement("button");
+                fileBtn.className = "btn btn-secondary btn-sm";
+                fileBtn.innerText = "Добавить материал";
+                fileBtn.onclick = () => fileInput.click();
+
+                const editBtn = document.createElement("button");
+                editBtn.className = "btn btn-primary btn-sm";
+                editBtn.innerText = "Редактировать";
+                editBtn.onclick = () => goToEditSession(event.id, session.id);
+
+                const delBtn = document.createElement("button");
+                delBtn.className = "btn btn-danger btn-sm";
+                delBtn.innerText = "Удалить сессию";
+                delBtn.onclick = () => deleteSession(session.id);
+
+                const publishBtn = document.createElement("button");
+                const unpublishBtn = document.createElement("button");
+
+                if (session.status === "draft") {
+                    publishBtn.className = "btn btn-success btn-sm";
+                    publishBtn.innerText = "Опубликовать";
+
+                    publishBtn.onclick = () => publishSession(session.id);
+                }
+
+                if (session.status === "published") {
+                    publishBtn.className = "btn btn-secondary btn-sm";
+                    publishBtn.innerText = "Завершить";
+                    publishBtn.onclick = () => completeSession(session.id);
+
+                    unpublishBtn.className = "btn btn-warning btn-sm";
+                    unpublishBtn.innerText = "В черновик";
+                    unpublishBtn.onclick = () => unpublishSession(session.id);
+                }
+
+
+                actionsDiv.appendChild(fileInput);
+                actionsDiv.appendChild(fileBtn);
+                actionsDiv.appendChild(editBtn);
+                actionsDiv.appendChild(delBtn);
+
+               if (session.status === "draft" || session.status === "published") {
+                    actionsDiv.appendChild(publishBtn);
+               }
+
+                if (session.status === "published") {
+                    actionsDiv.appendChild(unpublishBtn);
+                }
+
+                sessionDiv.appendChild(actionsDiv);
+            }
+            const commentActionsDiv = document.createElement("div");
+            commentActionsDiv.className = "session-actions";
+
+            const commentsBtn = document.createElement("button");
+            commentsBtn.className = "btn btn-secondary btn-sm";
+            commentsBtn.innerText = "Комментарии";
+            commentsBtn.onclick = () => goToSessionComments(event.id, session.id);
+
+            commentActionsDiv.appendChild(commentsBtn);
+            sessionDiv.appendChild(commentActionsDiv);
+
+            sessionsContainer.appendChild(sessionDiv);
+        });
+    }
+
+    async function markReviewed() {
         const token = getCookie("access_token");
         const eventId = "{{ event_id }}";
-        const res = await fetch(`/api/v1/events/${eventId}/reviewed`, {method:"POST", headers:{"Authorization":"Bearer "+token}});
-        if(!res.ok) return alert("Ошибка");
+
+        const res = await fetch(`/api/v1/events/${eventId}/reviewed`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка");
+            return;
+        }
+
         alert("Проверено");
         loadEvent(eventId);
     }
 
-    function showNeedsEditPopup(){document.getElementById("needs-edit-popup").style.display="block";}
-    function hideNeedsEditPopup(){document.getElementById("needs-edit-popup").style.display="none";}
-    async function submitNeedsEdit(){
+    function showNeedsEditPopup() {
+        document.getElementById("needs-edit-popup").style.display = "flex";
+    }
+
+    function hideNeedsEditPopup() {
+        document.getElementById("needs-edit-popup").style.display = "none";
+    }
+
+    async function submitNeedsEdit() {
         const token = getCookie("access_token");
-        const eventId="{{ event_id }}";
-        const reason=document.getElementById("edit-reason").value.trim();
-        if(!reason) return alert("Введите причину");
-        const res=await fetch(`/api/v1/events/${eventId}/needs-edit`, {method:"POST", headers:{"Authorization": "Bearer "+token,"Content-Type":"application/json"}, body:JSON.stringify({reason})});
-        if(!res.ok) return alert("Ошибка");
-        alert("Отправлено"); document.getElementById("edit-reason").value=""; hideNeedsEditPopup(); loadEvent(eventId);
+        const eventId = "{{ event_id }}";
+        const reason = document.getElementById("edit-reason").value.trim();
+
+        if (!reason) {
+            alert("Введите причину");
+            return;
+        }
+
+        const res = await fetch(`/api/v1/events/${eventId}/needs-edit`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                reason: reason
+            })
+        });
+
+        if (!res.ok) {
+            alert("Ошибка");
+            return;
+        }
+
+        alert("Отправлено");
+        document.getElementById("edit-reason").value = "";
+        hideNeedsEditPopup();
+        loadEvent(eventId);
     }
 
-    // --- ORGANIZER ---
-    async function publishEvent(){
+    async function publishEvent() {
         const token = getCookie("access_token");
-        const eventId="{{ event_id }}";
-        const res=await fetch(`/api/v1/events/${eventId}/publish`, {method:"POST", headers:{"Authorization":"Bearer "+token}});
-        if(!res.ok) return alert("Ошибка публикации");
-        alert("Опубликовано"); loadEvent(eventId);
+        const eventId = "{{ event_id }}";
+
+        const res = await fetch(`/api/v1/events/${eventId}/publish`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка публикации");
+            return;
+        }
+
+        alert("Опубликовано");
+        loadEvent(eventId);
     }
 
-    // --- NAV ---
-    function goToCreateSession(){window.location.href=`/admin/events/{{ event_id }}/sessions/create`;}
-    function goToEditSession(eventId, sessionId){window.location.href=`/admin/events/${eventId}/sessions/${sessionId}/edit`;}
-    async function deleteSession(sessionId){
-        if(!confirm("Удалить сессию?")) return;
-        const token=getCookie("access_token");
-        const res=await fetch(`/api/v1/sessions/${sessionId}`, {method:"DELETE", headers:{"Authorization":"Bearer "+token}});
-        if(!res.ok) return alert("Ошибка при удалении сессии");
-        alert("Сессия удалена"); loadEvent("{{ event_id }}");
+    async function submitEventForReview() {
+        const token = getCookie("access_token");
+        const eventId = "{{ event_id }}";
+
+        const res = await fetch(`/api/v1/events/${eventId}/submit-review`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            let message = "Ошибка отправки на проверку";
+
+            try {
+                const data = await res.json();
+                message = data.detail || message;
+            } catch (err) {
+                console.error(err);
+            }
+
+            alert(message);
+            return;
+        }
+
+        alert("Мероприятие отправлено на проверку");
+        loadEvent(eventId);
     }
 
-    // --- UPLOAD FILES ---
-    async function uploadEventBanner(){
-        const input=document.getElementById("event-banner-input");
-        if(!input.files.length) return alert("Выберите файл");
-        const formData=new FormData(); formData.append("file", input.files[0]);
-        const token=getCookie("access_token");
-        const res=await fetch(`/api/v1/events/{{ event_id }}/upload-banner`, {method:"POST", headers:{"Authorization":"Bearer "+token}, body:formData});
-        if(!res.ok) return alert("Ошибка загрузки баннера");
-        alert("Баннер мероприятия загружен"); input.value=""; loadEvent("{{ event_id }}");
+    function goToCreateSession() {
+        window.location.href = `/admin/events/{{ event_id }}/sessions/create`;
     }
 
-    async function uploadSessionBanner(sessionId){
-        const input=document.getElementById(`banner-input-${sessionId}`);
-        if(!input.files.length) return alert("Выберите файл");
-        const formData=new FormData(); formData.append("file", input.files[0]);
-        const token=getCookie("access_token");
-        const res=await fetch(`/api/v1/sessions/${sessionId}/upload-banner`, {method:"POST", headers:{"Authorization":"Bearer "+token}, body:formData});
-        if(!res.ok) return alert("Ошибка загрузки баннера");
-        alert("Баннер сессии загружен"); input.value="";
+    function goToEditSession(eventId, sessionId) {
+        window.location.href = `/admin/events/${eventId}/sessions/${sessionId}/edit`;
     }
 
-    async function uploadSessionFile(sessionId){
-        const input=document.getElementById(`file-input-${sessionId}`);
-        if(!input.files.length) return alert("Выберите файл");
-        const formData=new FormData(); formData.append("file", input.files[0]);
-        const token=getCookie("access_token");
-        const res=await fetch(`/api/v1/sessions/${sessionId}/upload-file`, {method:"POST", headers:{"Authorization":"Bearer "+token}, body:formData});
-        if(!res.ok) return alert("Ошибка загрузки файла");
-        alert("Файл сессии загружен"); input.value="";
+    async function deleteSession(sessionId) {
+        if (!confirm("Удалить сессию?")) return;
+
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка при удалении сессии");
+            return;
+        }
+
+        alert("Сессия удалена");
+        loadEvent("{{ event_id }}");
     }
 
-    document.addEventListener("DOMContentLoaded", ()=>{ loadEvent("{{ event_id }}"); });
+    async function uploadEventBanner() {
+        const input = document.getElementById("event-banner-input");
+
+        if (!input.files.length) {
+            alert("Выберите файл");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", input.files[0]);
+
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/events/{{ event_id }}/upload-banner`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            },
+            body: formData
+        });
+
+        if (!res.ok) {
+            alert("Ошибка загрузки баннера");
+            return;
+        }
+
+        alert("Баннер мероприятия загружен");
+        input.value = "";
+        loadEvent("{{ event_id }}");
+    }
+
+    async function uploadSessionBanner(sessionId) {
+        const input = document.getElementById(`banner-input-${sessionId}`);
+
+        if (!input || !input.files.length) {
+            alert("Выберите файл");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", input.files[0]);
+
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/upload-banner`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            },
+            body: formData
+        });
+
+        if (!res.ok) {
+            alert("Ошибка загрузки баннера");
+            return;
+        }
+
+        alert("Баннер сессии загружен");
+        input.value = "";
+        loadEvent("{{ event_id }}");
+    }
+
+    async function uploadSessionFile(sessionId) {
+        const input = document.getElementById(`file-input-${sessionId}`);
+
+        if (!input.files.length) {
+            alert("Выберите файл");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", input.files[0]);
+
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/upload-file`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            },
+            body: formData
+        });
+
+        if (!res.ok) {
+            alert("Ошибка загрузки файла");
+            return;
+        }
+
+        alert("Файл сессии загружен");
+        input.value = "";
+
+        loadEvent("{{ event_id }}");
+    }
+
+    async function deleteSessionFile(sessionId, fileId) {
+        if (!confirm("Удалить закрепленный файл?")) return;
+
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/files/${fileId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            let message = "Ошибка удаления файла";
+
+            try {
+                const data = await res.json();
+                message = data.detail || message;
+            } catch (err) {
+                console.error(err);
+            }
+
+            alert(message);
+            return;
+        }
+
+        alert("Файл удален");
+        loadEvent("{{ event_id }}");
+    }
+
+    async function publishSession(sessionId) {
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/publish`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка публикации сессии");
+            return;
+        }
+
+        alert("Сессия опубликована");
+        loadEvent("{{ event_id }}");
+    }
+
+    async function completeSession(sessionId) {
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/complete`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка завершения сессии");
+            return;
+        }
+
+        alert("Сессия завершена");
+        loadEvent("{{ event_id }}");
+    }
+
+    async function unpublishSession(sessionId) {
+        if (!confirm("Перенести сессию в черновик?")) return;
+
+        const token = getCookie("access_token");
+
+        const res = await fetch(`/api/v1/sessions/${sessionId}/unpublish`, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!res.ok) {
+            alert("Ошибка переноса сессии в черновик");
+            return;
+        }
+
+        alert("Сессия перенесена в черновик");
+        loadEvent("{{ event_id }}");
+    }
+
+    function goToSessionComments(eventId, sessionId) {
+        window.location.href = `/admin/sessions/${sessionId}/comments?event_id=${eventId}`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadEvent("{{ event_id }}");
+    });
 </script>
+
 {% endblock %}

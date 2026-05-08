@@ -1,15 +1,47 @@
+<!--app/admin/templates/mode_select.html-->
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Выберите режим работы</h2>
 
-<button onclick="setMode('organizer')">Я организатор</button>
-<button onclick="setMode('participant')">Я участник</button>
+<div class="auth-page">
+    <section class="card mode-select-card">
+        <div class="auth-card-header">
+            <div class="auth-icon">EM</div>
+            <h1 class="auth-title">Выберите режим работы</h1>
+            <p class="auth-description">
+                Выберите, как вы хотите работать в системе: создавать мероприятия или участвовать в них.
+            </p>
+        </div>
+
+        <div class="mode-select-grid">
+            <button class="mode-option-card" onclick="setMode('organizer')">
+                <span class="mode-option-icon">👨‍💼</span>
+                <span class="mode-option-title">Я организатор</span>
+                <span class="mode-option-text">
+                    Создание мероприятий, управление сессиями и материалами.
+                </span>
+            </button>
+
+            <button class="mode-option-card" onclick="setMode('participant')">
+                <span class="mode-option-icon">👤</span>
+                <span class="mode-option-title">Я участник</span>
+                <span class="mode-option-text">
+                    Просмотр опубликованных мероприятий и запись на участие.
+                </span>
+            </button>
+        </div>
+
+        <div class="auth-footer">
+            <a href="/admin/login">Выйти из аккаунта</a>
+        </div>
+    </section>
+</div>
 
 <script>
-function setMode(mode) {
-    localStorage.setItem("user_mode", mode);
-    window.location.href = "/admin/dashboard";
-}
+    function setMode(mode) {
+        localStorage.setItem("user_mode", mode);
+        window.location.href = "/admin/dashboard";
+    }
 </script>
+
 {% endblock %}

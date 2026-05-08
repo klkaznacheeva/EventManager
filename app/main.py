@@ -23,6 +23,7 @@ app.include_router(user_router)
 app.include_router(feedback_router)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")
 
 
 @app.exception_handler(HTTPException)

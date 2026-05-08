@@ -1,31 +1,109 @@
+<!-- app/admin/templates/create_event.html -->
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Создание мероприятия</h2>
 
-<form id="create-event-form">
-    <input type="text" id="title" placeholder="Название" required><br>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Создание мероприятия</h1>
+        <p class="page-description">
+            Заполните основные данные мероприятия. После создания можно будет добавить сессии и материалы.
+        </p>
+    </div>
 
-    <textarea id="description" placeholder="Описание"></textarea><br>
+    <div class="btn-row">
+        <a href="/admin/dashboard" class="btn btn-ghost">
+            Назад к списку
+        </a>
+    </div>
+</div>
 
-    <select id="category_id" required>
-        <option value="">Выберите категорию</option>
-    </select><br>
+<section class="card form-card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Основная информация</h2>
+            <p class="card-subtitle">
+                Укажите название, описание, категорию, дату и место проведения.
+            </p>
+        </div>
+    </div>
 
-    <input type="datetime-local" id="start_date" required><br>
-    <input type="datetime-local" id="end_date" required><br>
+    <div class="card-body">
+        <form id="create-event-form" class="admin-form">
+            <div class="form-grid">
+                <div class="form-field form-field-wide">
+                    <label for="title">Название мероприятия</label>
+                    <input type="text" id="title" placeholder="Например: IT-конференция 2026" required>
+                </div>
 
-    <input type="text" id="location" placeholder="Локация"><br>
+                <div class="form-field form-field-wide">
+                    <label for="description">Описание</label>
+                    <textarea id="description" rows="5" placeholder="Кратко опишите тему, программу и цель мероприятия"></textarea>
+                </div>
 
-    <button type="submit">Создать</button>
-</form>
-<p id="error" style="color:red;"></p>
+                <div class="form-field">
+                    <label for="category_id">Категория</label>
+                    <select id="category_id" required>
+                        <option value="">Загрузка категорий...</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="location">Локация</label>
+                    <input type="text" id="location" placeholder="Например: Москва, конференц-зал">
+                </div>
+
+                <div class="form-field">
+                    <label for="start_date">Дата и время начала</label>
+                    <input type="datetime-local" id="start_date" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="end_date">Дата и время окончания</label>
+                    <input type="datetime-local" id="end_date" required>
+                </div>
+            </div>
+
+            <p id="error" class="error-alert" style="display:none;"></p>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    Создать мероприятие
+                </button>
+
+                <a href="/admin/dashboard" class="btn btn-ghost">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
 
 <script>
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    function showError(message) {
+        const error = document.getElementById("error");
+        error.innerText = message;
+        error.style.display = "block";
+    }
+
+    function hideError() {
+        const error = document.getElementById("error");
+        error.innerText = "";
+        error.style.display = "none";
+    }
+
+    function setSubmitLoading(isLoading) {
+        const submitBtn = document.getElementById("submit-btn");
+
+        submitBtn.disabled = isLoading;
+        submitBtn.innerText = isLoading ? "Создание..." : "Создать мероприятие";
     }
 
     async function loadCategories() {
@@ -33,56 +111,97 @@
 
         try {
             const response = await fetch("/api/v1/enums/categories");
+
+            if (!response.ok) {
+                select.innerHTML = `<option value="">Ошибка загрузки категорий</option>`;
+                return;
+            }
+
             const data = await response.json();
 
-            // очищаем старые options кроме "Выберите категорию"
-            select.querySelectorAll("option:not([value=''])").forEach(o => o.remove());
+            select.innerHTML = `<option value="">Выберите категорию</option>`;
 
-            // добавляем новые
             data.items.forEach(cat => {
                 const option = document.createElement("option");
-                option.value = cat.value;    // <- строго value из ответа
-                option.textContent = cat.label; // <- строго label
+                option.value = cat.value;
+                option.textContent = cat.label;
                 select.appendChild(option);
             });
+
         } catch (err) {
             console.error("Ошибка при загрузке категорий:", err);
+            select.innerHTML = `<option value="">Ошибка загрузки категорий</option>`;
         }
     }
 
-    // 🔥 создание события
     document.getElementById("create-event-form").addEventListener("submit", async (e) => {
         e.preventDefault();
+        hideError();
 
         const token = getCookie("access_token");
 
-        const payload = {
-            title: document.getElementById("title").value,
-            description: document.getElementById("description").value,
-            category_id: document.getElementById("category_id").value,
-            start_date: new Date(document.getElementById("start_date").value).toISOString(),
-            end_date: new Date(document.getElementById("end_date").value).toISOString(),
-            location: document.getElementById("location").value
-        };
-
-        const res = await fetch("/api/v1/events/", {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer " + token,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            document.getElementById("error").innerText = "Ошибка создания";
+        if (!token) {
+            showError("Пользователь не авторизован");
             return;
         }
 
-        window.location.href = "/admin/dashboard";
+        const startDateValue = document.getElementById("start_date").value;
+        const endDateValue = document.getElementById("end_date").value;
+
+        const startDate = new Date(startDateValue);
+        const endDate = new Date(endDateValue);
+
+        if (endDate <= startDate) {
+            showError("Дата окончания должна быть позже даты начала");
+            return;
+        }
+
+        const payload = {
+            title: document.getElementById("title").value.trim(),
+            description: document.getElementById("description").value.trim(),
+            category_id: document.getElementById("category_id").value,
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString(),
+            location: document.getElementById("location").value.trim()
+        };
+
+        setSubmitLoading(true);
+
+        try {
+            const res = await fetch("/api/v1/events/", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                let message = "Ошибка создания мероприятия";
+
+                try {
+                    const data = await res.json();
+                    message = data.detail || message;
+                } catch (err) {
+                    console.error(err);
+                }
+
+                showError(message);
+                return;
+            }
+
+            window.location.href = "/admin/dashboard";
+
+        } catch (err) {
+            console.error(err);
+            showError("Ошибка соединения с сервером");
+        } finally {
+            setSubmitLoading(false);
+        }
     });
 
-    // ждем, пока DOM загрузится
     document.addEventListener("DOMContentLoaded", loadCategories);
 </script>
+
 {% endblock %}
