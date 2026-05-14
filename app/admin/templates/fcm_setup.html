@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Настройка уведомлений</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 500px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f0f0f0; padding: 10px; word-break: break-all; font-size: 12px; }
+        .token-display { background: #f0f0f0; padding: 10px; word-break: break-all; font-size: 11px; margin-top: 10px; border-radius: 5px; display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>📱 Настройка уведомлений</h1>
+
+    <button id="allowBtn">1️⃣ Разрешить уведомления</button>
+    <button id="getTokenBtn" disabled>2️⃣ Получить и сохранить токен</button>
+    <button id="sendPushBtn" disabled>3️⃣ Отправить тестовый пуш</button>
+
+    <div id="status"></div>
+    <div id="tokenDisplay" class="token-display">
+        <strong>Текущий токен:</strong><br>
+        <code id="tokenValue"></code>
+    </div>
+
+    <script type="module">
+        const firebaseConfig = {
+            apiKey: "AIzaSyCSSN_vZI2u7tMyUcDxNCxZA7TtiDOWErQ",
+            authDomain: "eventmanager-b7f5c.firebaseapp.com",
+            projectId: "eventmanager-b7f5c",
+            storageBucket: "eventmanager-b7f5c.firebasestorage.app",
+            messagingSenderId: "126978082457",
+            appId: "1:126978082457:web:899c11bbdb9f2b6a3b1a08"
+        };
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
+
+        let messaging = null;
+        let currentToken = null;
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        async function saveTokenToBackend(token) {
+            const accessToken = getCookie('access_token');
+            if (!accessToken) {
+                document.getElementById('status').innerHTML = '<span class="error">❌ Вы не авторизованы</span>';
+                return false;
+            }
+
+            const response = await fetch('/api/v1/push/save-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + accessToken
+                },
+                body: JSON.stringify({
+                    fcm_token: token,
+                    device_name: navigator.userAgent,
+                    device_type: 'web'
+                })
+            });
+
+            if (response.ok) {
+                document.getElementById('status').innerHTML = '<span class="success">✅ Токен сохранён на сервере</span>';
+                return true;
+            } else {
+                const err = await response.json();
+                document.getElementById('status').innerHTML = `<span class="error">❌ Ошибка сохранения: ${err.detail || 'Unknown'}</span>`;
+                return false;
+            }
+        }
+
+        async function registerSW() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                    console.log('✅ SW registered:', registration);
+                    return registration;
+                } catch (e) {
+                    console.error('❌ SW error:', e);
+                }
+            }
+            return null;
+        }
+
+        document.getElementById("allowBtn").onclick = async () => {
+            console.log('🔍 Запрос разрешения на уведомления...');
+            const permission = await Notification.requestPermission();
+            if (permission === "granted") {
+                console.log('✅ Разрешение получено');
+                await registerSW();
+                const app = initializeApp(firebaseConfig);
+                messaging = getMessaging(app);
+                document.getElementById("status").innerHTML = '<span class="success">✅ Разрешение получено</span>';
+                document.getElementById("getTokenBtn").disabled = false;
+            } else {
+                console.log('❌ Разрешение отклонено');
+                document.getElementById("status").innerHTML = '<span class="error">❌ Без разрешения push не будут работать</span>';
+            }
+        };
+
+        document.getElementById("getTokenBtn").onclick = async () => {
+            if (!messaging) {
+                alert("Сначала разрешите уведомления");
+                return;
+            }
+
+            try {
+                console.log('🔍 Получение FCM токена...');
+                const token = await getToken(messaging, {
+                    vapidKey: "BIyYz3ubfj2J1Mt6FINe8-6qqa_ruPaVTugmnUwGjhVCDMAFOWC6yHnmTxHueIiK_XK2zgs4LcqiUgPs-N4cvXM"
+                });
+                currentToken = token;
+                console.log('✅ Токен получен:', token);
+                console.log('✅ Длина токена:', token.length);
+
+                // Показываем токен на странице
+                document.getElementById("tokenValue").innerText = token;
+                document.getElementById("tokenDisplay").style.display = "block";
+                document.getElementById("status").innerHTML = `<span class="success">✅ Токен получен (${token.substring(0, 30)}...)</span>`;
+
+                // Сохраняем на бэкенд
+                await saveTokenToBackend(token);
+                document.getElementById("sendPushBtn").disabled = false;
+            } catch (err) {
+                console.error('❌ Ошибка получения токена:', err);
+                document.getElementById("status").innerHTML = `<span class="error">❌ Ошибка: ${err.message}</span>`;
+            }
+        };
+
+        document.getElementById("sendPushBtn").onclick = async () => {
+            const accessToken = getCookie('access_token');
+            if (!accessToken) {
+                document.getElementById("status").innerHTML = '<span class="error">❌ Вы не авторизованы</span>';
+                return;
+            }
+
+            if (!currentToken) {
+                document.getElementById("status").innerHTML = '<span class="error">❌ Нет токена. Сначала получите токен.</span>';
+                return;
+            }
+
+            console.log('🔍 Отправка пуша...');
+            console.log('🔍 Используемый токен:', currentToken);
+            console.log('🔍 Длина токена:', currentToken.length);
+
+            document.getElementById("status").innerHTML = '<span class="info">⏳ Отправка...</span>';
+
+            const response = await fetch('/api/v1/push/send-test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + accessToken
+                },
+                body: JSON.stringify({
+                    title: "Тестовое уведомление",
+                    body: "Привет! Это тестовый пуш с твоего сервера",
+                    fcm_token: currentToken
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Пуш отправлен! Message ID:', data.message_id);
+                document.getElementById("status").innerHTML = '<span class="success">✅ Пуш отправлен! Проверь уведомления.</span>';
+            } else {
+                const error = await response.json();
+                console.error('❌ Ошибка отправки:', error);
+                document.getElementById("status").innerHTML = `<span class="error">❌ Ошибка: ${error.detail}</span>`;
+            }
+        };
+
+        // Логируем при загрузке
+        console.log('📱 Страница загружена');
+    </script>
+</body>
+</html>
