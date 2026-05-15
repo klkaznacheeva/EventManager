@@ -7,6 +7,7 @@ from uuid import UUID
 from enum import Enum
 
 from app.core.enum import EventStatus, EventStatusMap
+from app.schemas.session import AssignSpeakerResponse, SessionSpeakerResponse
 
 
 # Request schemas
@@ -66,6 +67,7 @@ class SessionResponse(BaseModel):
     status: Optional[str]
     status_label: Optional[str] = None
     files: Optional[List[SessionFileResponse]] = None
+    speakers: Optional[List[SessionSpeakerResponse]] = None
 
     class Config:
         from_attributes = True
@@ -90,6 +92,7 @@ class EventResponse(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
     banner_url : Optional[str] = None
+    is_speaker: bool = False
 
     class Config:
         from_attributes = True

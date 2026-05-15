@@ -15,8 +15,8 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
-    access, refresh = AuthService.login(db, data)
-    return TokenResponse(access_token=access, refresh_token=refresh)
+    access, refresh, roles = AuthService.login(db, data)
+    return TokenResponse(access_token=access, refresh_token=refresh, user_roles=roles)
 
 @router.post("/logout")
 def logout(response: Response):

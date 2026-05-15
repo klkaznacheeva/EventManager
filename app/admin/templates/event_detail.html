@@ -460,158 +460,188 @@
         }
 
             sessions.forEach(session => {
-            const sessionDiv = document.createElement("div");
-            sessionDiv.className = "session-card";
+                const sessionDiv = document.createElement("div");
+                sessionDiv.className = "session-card";
 
-            const sessionStatus = session.status_label || session.status || "";
-            const sessionLocation = session.location || "Место не указано";
-            const sessionDescription = session.description || "";
+                const sessionStatus = session.status_label || session.status || "";
+                const sessionLocation = session.location || "Место не указано";
+                const sessionDescription = session.description || "";
 
-            let filesHtml = "";
+                let speakersHtml = "";
 
-            if (session.files && session.files.length > 0) {
-                filesHtml += `
-                    <div class="session-files">
-                        <h4 class="session-files-title">Материалы сессии</h4>
-                        <ul class="session-files-list">
-                `;
+                if (session.speakers && session.speakers.length > 0) {
+                    speakersHtml += `
+                        <div class="session-speakers">
+                            <div class="session-speakers-title">
+                                Приглашённые спикеры
+                            </div>
 
-                session.files.forEach(file => {
-                    const fileId = file.id || file.file_id;
-                    const canDeleteFile = userRole !== "admin" && getUserMode() === "organizer" && fileId;
+                            <div class="session-speakers-list">
+                    `;
+
+                    session.speakers.forEach(s => {
+                        speakersHtml += `
+                            <div class="session-speaker-badge">
+                                ${escapeHtml(s.last_name || "")} ${escapeHtml(s.first_name || "")}
+                                <span class="session-speaker-email">
+                                    ${escapeHtml(s.email || "")}
+                                </span>
+                            </div>
+                        `;
+                    });
+
+                    speakersHtml += `
+                            </div>
+                        </div>
+                    `;
+                }
+
+                let filesHtml = "";
+
+                if (session.files && session.files.length > 0) {
+                    filesHtml += `
+                        <div class="session-files">
+                            <h4 class="session-files-title">Материалы сессии</h4>
+                            <ul class="session-files-list">
+                    `;
+
+                    session.files.forEach(file => {
+                        const fileId = file.id || file.file_id;
+                        const canDeleteFile = userRole !== "admin" && getUserMode() === "organizer" && fileId;
+
+                        filesHtml += `
+                            <li class="session-file-item">
+                                <a href="${escapeHtml(file.url)}" target="_blank" class="session-file-link">
+                                    ${escapeHtml(file.file_name || "Файл")}
+                                </a>
+
+                                ${
+                                    canDeleteFile
+                                        ? `<button
+                                                type="button"
+                                                class="file-delete-btn"
+                                                onclick="deleteSessionFile('${session.id}', '${fileId}')"
+                                           >
+                                                Удалить
+                                           </button>`
+                                        : ""
+                                }
+                            </li>
+                        `;
+                    });
 
                     filesHtml += `
-                        <li class="session-file-item">
-                            <a href="${escapeHtml(file.url)}" target="_blank" class="session-file-link">
-                                ${escapeHtml(file.file_name || "Файл")}
-                            </a>
-
-                            ${
-                                canDeleteFile
-                                    ? `<button
-                                            type="button"
-                                            class="file-delete-btn"
-                                            onclick="deleteSessionFile('${session.id}', '${fileId}')"
-                                       >
-                                            Удалить
-                                       </button>`
-                                    : ""
-                            }
-                        </li>
+                            </ul>
+                        </div>
                     `;
-                });
 
-                filesHtml += `
-                        </ul>
-                    </div>
-                `;
+                }
 
-            }
+                sessionDiv.innerHTML = `
+                    <div class="session-top">
+                        <div>
+                            <h3 class="session-title">${escapeHtml(session.title || "Сессия")}</h3>
 
-            sessionDiv.innerHTML = `
-                <div class="session-top">
-                    <div>
-                        <h3 class="session-title">${escapeHtml(session.title || "Сессия")}</h3>
+                            <div class="session-meta">
+                                <span>${formatDate(session.start_date)} — ${formatDate(session.end_date)}</span>
+                                <span>${escapeHtml(sessionLocation)}</span>
+                            </div>
 
-                        <div class="session-meta">
-                            <span>${formatDate(session.start_date)} — ${formatDate(session.end_date)}</span>
-                            <span>${escapeHtml(sessionLocation)}</span>
+                            ${sessionDescription
+                                ? `<div class="session-description">${escapeHtml(sessionDescription)}</div>`
+                                : ""
+                                }
+
+                            ${speakersHtml}
                         </div>
 
                         ${
-                            sessionDescription
-                                ? `<div class="session-description">${escapeHtml(sessionDescription)}</div>`
+                            sessionStatus
+                                ? `<span class="status-badge ${getStatusClass(session.status || session.status_label)}">
+                                        ${escapeHtml(sessionStatus)}
+                                   </span>`
                                 : ""
                         }
                     </div>
 
-                    ${
-                        sessionStatus
-                            ? `<span class="status-badge ${getStatusClass(session.status || session.status_label)}">
-                                    ${escapeHtml(sessionStatus)}
-                               </span>`
-                            : ""
+                    ${filesHtml}
+                `;
+
+                const isOrganizerMode = userRole !== "admin" && getUserMode() === "organizer";
+
+                if (isOrganizerMode) {
+                    const actionsDiv = document.createElement("div");
+                    actionsDiv.className = "session-actions";
+
+                    const fileInput = document.createElement("input");
+                    fileInput.type = "file";
+                    fileInput.id = `file-input-${session.id}`;
+                    fileInput.style.display = "none";
+                    fileInput.onchange = () => uploadSessionFile(session.id);
+
+                    const fileBtn = document.createElement("button");
+                    fileBtn.className = "btn btn-secondary btn-sm";
+                    fileBtn.innerText = "Добавить материал";
+                    fileBtn.onclick = () => fileInput.click();
+
+                    const editBtn = document.createElement("button");
+                    editBtn.className = "btn btn-primary btn-sm";
+                    editBtn.innerText = "Редактировать";
+                    editBtn.onclick = () => goToEditSession(event.id, session.id);
+
+                    const delBtn = document.createElement("button");
+                    delBtn.className = "btn btn-danger btn-sm";
+                    delBtn.innerText = "Удалить сессию";
+                    delBtn.onclick = () => deleteSession(session.id);
+
+                    const publishBtn = document.createElement("button");
+                    const unpublishBtn = document.createElement("button");
+
+                    if (session.status === "draft") {
+                        publishBtn.className = "btn btn-success btn-sm";
+                        publishBtn.innerText = "Опубликовать";
+
+                        publishBtn.onclick = () => publishSession(session.id);
                     }
-                </div>
 
-                ${filesHtml}
-            `;
+                    if (session.status === "published") {
+                        publishBtn.className = "btn btn-secondary btn-sm";
+                        publishBtn.innerText = "Завершить";
+                        publishBtn.onclick = () => completeSession(session.id);
 
-            const isOrganizerMode = userRole !== "admin" && getUserMode() === "organizer";
+                        unpublishBtn.className = "btn btn-warning btn-sm";
+                        unpublishBtn.innerText = "В черновик";
+                        unpublishBtn.onclick = () => unpublishSession(session.id);
+                    }
 
-            if (isOrganizerMode) {
-                const actionsDiv = document.createElement("div");
-                actionsDiv.className = "session-actions";
 
-                const fileInput = document.createElement("input");
-                fileInput.type = "file";
-                fileInput.id = `file-input-${session.id}`;
-                fileInput.style.display = "none";
-                fileInput.onchange = () => uploadSessionFile(session.id);
+                    actionsDiv.appendChild(fileInput);
+                    actionsDiv.appendChild(fileBtn);
+                    actionsDiv.appendChild(editBtn);
+                    actionsDiv.appendChild(delBtn);
 
-                const fileBtn = document.createElement("button");
-                fileBtn.className = "btn btn-secondary btn-sm";
-                fileBtn.innerText = "Добавить материал";
-                fileBtn.onclick = () => fileInput.click();
+                   if (session.status === "draft" || session.status === "published") {
+                        actionsDiv.appendChild(publishBtn);
+                   }
 
-                const editBtn = document.createElement("button");
-                editBtn.className = "btn btn-primary btn-sm";
-                editBtn.innerText = "Редактировать";
-                editBtn.onclick = () => goToEditSession(event.id, session.id);
+                    if (session.status === "published") {
+                        actionsDiv.appendChild(unpublishBtn);
+                    }
 
-                const delBtn = document.createElement("button");
-                delBtn.className = "btn btn-danger btn-sm";
-                delBtn.innerText = "Удалить сессию";
-                delBtn.onclick = () => deleteSession(session.id);
-
-                const publishBtn = document.createElement("button");
-                const unpublishBtn = document.createElement("button");
-
-                if (session.status === "draft") {
-                    publishBtn.className = "btn btn-success btn-sm";
-                    publishBtn.innerText = "Опубликовать";
-
-                    publishBtn.onclick = () => publishSession(session.id);
+                    sessionDiv.appendChild(actionsDiv);
                 }
+                const commentActionsDiv = document.createElement("div");
+                commentActionsDiv.className = "session-actions";
 
-                if (session.status === "published") {
-                    publishBtn.className = "btn btn-secondary btn-sm";
-                    publishBtn.innerText = "Завершить";
-                    publishBtn.onclick = () => completeSession(session.id);
+                const commentsBtn = document.createElement("button");
+                commentsBtn.className = "btn btn-secondary btn-sm";
+                commentsBtn.innerText = "Комментарии";
+                commentsBtn.onclick = () => goToSessionComments(event.id, session.id);
 
-                    unpublishBtn.className = "btn btn-warning btn-sm";
-                    unpublishBtn.innerText = "В черновик";
-                    unpublishBtn.onclick = () => unpublishSession(session.id);
-                }
+                commentActionsDiv.appendChild(commentsBtn);
+                sessionDiv.appendChild(commentActionsDiv);
 
-
-                actionsDiv.appendChild(fileInput);
-                actionsDiv.appendChild(fileBtn);
-                actionsDiv.appendChild(editBtn);
-                actionsDiv.appendChild(delBtn);
-
-               if (session.status === "draft" || session.status === "published") {
-                    actionsDiv.appendChild(publishBtn);
-               }
-
-                if (session.status === "published") {
-                    actionsDiv.appendChild(unpublishBtn);
-                }
-
-                sessionDiv.appendChild(actionsDiv);
-            }
-            const commentActionsDiv = document.createElement("div");
-            commentActionsDiv.className = "session-actions";
-
-            const commentsBtn = document.createElement("button");
-            commentsBtn.className = "btn btn-secondary btn-sm";
-            commentsBtn.innerText = "Комментарии";
-            commentsBtn.onclick = () => goToSessionComments(event.id, session.id);
-
-            commentActionsDiv.appendChild(commentsBtn);
-            sessionDiv.appendChild(commentActionsDiv);
-
-            sessionsContainer.appendChild(sessionDiv);
+                sessionsContainer.appendChild(sessionDiv);
         });
     }
 

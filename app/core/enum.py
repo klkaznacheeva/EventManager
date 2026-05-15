@@ -64,3 +64,4 @@ class RoleList(str, enum.Enum):
     organizer = "organizer"
     coordinator = "coordinator"
     user = "user"
+    speaker = "speaker"

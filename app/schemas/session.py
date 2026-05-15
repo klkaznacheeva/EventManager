@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -46,3 +46,45 @@ class SessionUpdateRequest(BaseModel):
     start_date: datetime
     end_date: datetime
     location: Optional[str] = None
+
+class SessionSpeakerCreateRequest(BaseModel):
+    first_name: str = Field(..., min_length=1, max_length=100)
+    second_name: Optional[str] = Field(default=None, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+
+    email: EmailStr
+    phone: Optional[str] = Field(default=None, max_length=50)
+
+
+class AssignSpeakerResponse(BaseModel):
+    detail: str
+    temporary_password: Optional[str] = None
+    is_new_user: bool
+    user_id: str
+
+class SessionSpeakerResponse(BaseModel):
+    id: UUID
+    first_name: Optional[str]
+    last_name: Optional[str]
+    email: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class SessionSpeakerItem(BaseModel):
+    id: str
+
+    first_name: str
+    second_name: Optional[str]
+    last_name: str
+
+    email: str
+    phone: Optional[str]
+
+    is_temporary: bool
+
+
+class SessionSpeakerListResponse(BaseModel):
+    items: List[SessionSpeakerItem]
+    total: int

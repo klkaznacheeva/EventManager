@@ -5,6 +5,7 @@
 
 <div class="auth-page">
     <section class="card auth-card auth-card-small">
+
         <div class="auth-card-header">
             <div class="auth-icon">EM</div>
             <h1 class="auth-title">Вход</h1>
@@ -14,7 +15,9 @@
         </div>
 
         <form id="login-form" class="admin-form">
+
             <div class="form-grid auth-form-grid">
+
                 <div class="form-field form-field-wide">
                     <label for="email">Email</label>
                     <input id="email" type="email" placeholder="example@mail.ru" required>
@@ -24,6 +27,7 @@
                     <label for="password">Пароль</label>
                     <input id="password" type="password" placeholder="Введите пароль" required>
                 </div>
+
             </div>
 
             <p id="error" class="error-alert" style="display:none;"></p>
@@ -33,12 +37,14 @@
                     Войти
                 </button>
             </div>
+
         </form>
 
         <div class="auth-footer">
             Нет аккаунта?
             <a href="/admin/register">Зарегистрироваться</a>
         </div>
+
     </section>
 </div>
 
@@ -56,10 +62,9 @@
     }
 
     function setSubmitLoading(isLoading) {
-        const submitBtn = document.getElementById("submit-btn");
-
-        submitBtn.disabled = isLoading;
-        submitBtn.innerText = isLoading ? "Вход..." : "Войти";
+        const btn = document.getElementById("submit-btn");
+        btn.disabled = isLoading;
+        btn.innerText = isLoading ? "Вход..." : "Войти";
     }
 
     async function login() {
@@ -78,13 +83,8 @@
         try {
             const response = await fetch("/api/v1/auth/login", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    email: email,
-                    password: password
-                })
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ email, password })
             });
 
             if (!response.ok) {
@@ -94,7 +94,11 @@
 
             const data = await response.json();
 
-            document.cookie = `access_token=${data.access_token}; path=/`;
+            document.cookie = `access_token=${data.access_token}; path=/; SameSite=Lax`;
+
+            if (data.user_roles) {
+                localStorage.setItem("user_roles", JSON.stringify(data.user_roles));
+            }
 
             const profileRes = await fetch("/api/v1/users/profile", {
                 headers: {
@@ -109,12 +113,40 @@
 
             const profile = await profileRes.json();
 
+            // =========================
+            // SYSTEM ADMIN
+            // =========================
             if (profile.is_system) {
                 localStorage.removeItem("user_mode");
                 window.location.href = "/admin/dashboard";
-            } else {
-                window.location.href = "/admin/mode-select";
+                return;
             }
+
+            // =========================
+            // SPEAKER AUTO MODE
+            // =========================
+            const roles = data.user_roles || [];
+
+            const isSpeaker = roles.includes("speaker");
+
+            if (isSpeaker && roles.length === 1) {
+                // человек ТОЛЬКО спикер → не спрашиваем режим
+                localStorage.setItem("user_mode", "speaker");
+                window.location.href = "/admin/dashboard";
+                return;
+            }
+
+            if (isSpeaker && roles.includes("user")) {
+                // смешанный пользователь → тоже можно авто speaker
+                localStorage.setItem("user_mode", "speaker");
+                window.location.href = "/admin/dashboard";
+                return;
+            }
+
+            // =========================
+            // DEFAULT FLOW
+            // =========================
+            window.location.href = "/admin/mode-select";
 
         } catch (err) {
             console.error(err);
@@ -124,10 +156,10 @@
         }
     }
 
-    document.getElementById("login-form").addEventListener("submit", function (e) {
-        e.preventDefault();
-        login();
-    });
+    document.getElementById("login-form")
+        .addEventListener("submit", e => {
+            e.preventDefault();
+            login();
+        });
 </script>
-
 {% endblock %}

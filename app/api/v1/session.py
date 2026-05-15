@@ -14,7 +14,8 @@ from app.models import User, Role, EventParticipant
 from app.schemas.session import (
     SessionCreateRequest,
     SessionResponse,
-    SessionListResponse, SessionUpdateRequest
+    SessionListResponse, SessionUpdateRequest, SessionSpeakerResponse, SessionSpeakerCreateRequest,
+    SessionSpeakerListResponse, AssignSpeakerResponse
 )
 from app.schemas.session_comment import SessionCommentCreate
 from app.services.file_service import FileService
@@ -254,3 +255,50 @@ def create_session_comment(
         "id": str(comment.id),
         "detail": "Comment created"
     }
+
+@router.post(
+    "/{session_id}/speakers",
+    response_model=AssignSpeakerResponse
+)
+async def assign_speaker(
+        session_id: UUID,
+        data: SessionSpeakerCreateRequest,
+        db: Session = Depends(get_db),
+        user=Depends(get_required_user)
+):
+    return await SessionService.assign_speaker(
+        db=db,
+        session_id=session_id,
+        data=data,
+        current_user_id=user.id
+    )
+
+@router.get(
+    "/{session_id}/speakers",
+    response_model=SessionSpeakerListResponse
+)
+def get_session_speakers(
+        session_id: UUID,
+        db: Session = Depends(get_db),
+        user=Depends(get_required_user)
+):
+    return SessionService.get_session_speakers(
+        db=db,
+        session_id=session_id
+    )
+
+@router.delete(
+    "/{session_id}/speakers/{user_id}"
+)
+def remove_speaker(
+        session_id: UUID,
+        user_id: UUID,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_required_user)
+):
+    return SessionService.remove_speaker(
+        db=db,
+        session_id=session_id,
+        user_id=user_id,
+        current_user_id=current_user.id
+    )

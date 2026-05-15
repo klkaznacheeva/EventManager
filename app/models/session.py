@@ -35,3 +35,5 @@ class Session(Base):
 
     # ОБРАТНАЯ СВЯЗЬ
     event = relationship("Event", back_populates="sessions")
+
+    participants = relationship("SessionParticipant", back_populates="session")

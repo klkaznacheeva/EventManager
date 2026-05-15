@@ -17,6 +17,7 @@ from app.models import Role, Event
 from app.models.category import Category
 from app.models.event_participant import EventParticipant
 from app.models.session import Session as EventSession
+from app.models.session_participant import SessionParticipant
 from app.models.user import User
 from app.schemas.event import (
     EventCreateRequest,
@@ -24,6 +25,7 @@ from app.schemas.event import (
     EventListRequest,
     EventListResponse,
 )
+from app.schemas.session import SessionSpeakerResponse
 from app.services.file_service import FileService
 
 
@@ -80,11 +82,22 @@ class EventService:
     ) -> Event:
         """Получение мероприятия по ID с дополнительной информацией"""
 
-        query = db.query(Event).options(
-            joinedload(Event.category),
-            joinedload(Event.organizer),
-            joinedload(Event.sessions)
-        ).filter(Event.id == event_id)
+        query = (
+            db.query(Event)
+            .options(
+                joinedload(Event.category),
+                joinedload(Event.organizer),
+
+                joinedload(Event.sessions)
+                .joinedload(EventSession.participants)
+                .joinedload(SessionParticipant.user),
+
+                joinedload(Event.sessions)
+                .joinedload(EventSession.participants)
+                .joinedload(SessionParticipant.role),
+            )
+            .filter(Event.id == event_id)
+        )
 
         event = query.first()
 
@@ -117,8 +130,15 @@ class EventService:
                 session.status,
                 session.status
             )
+
             session_files = FileService.get_session_files(db, session.id)
             session.files = session_files
+
+            session.speakers = [
+                SessionSpeakerResponse.model_validate(p.user)
+                for p in session.participants
+                if p.role and p.role.name == RoleList.speaker.value
+            ]
 
         return event
 
@@ -198,10 +218,10 @@ class EventService:
 
     @staticmethod
     def get_events_list(
-        db: Session,
-        data: EventListRequest,
-        user_id: Optional[UUID] = None,
-        user_mode: str = "organizer"
+            db: Session,
+            data: EventListRequest,
+            user_id: Optional[UUID] = None,
+            user_mode: str = "organizer"
     ) -> EventListResponse:
         """Получение списка мероприятий с учетом режима пользователя"""
 
@@ -211,10 +231,14 @@ class EventService:
         )
 
         user = None
+
         if user_id:
             user = db.query(User).filter(User.id == user_id).first()
 
-        # Ролевая логика
+        # ---------------------------------------------------------
+        # ROLE LOGIC
+        # ---------------------------------------------------------
+
         if user and user.is_system:
             # Админ видит все
             pass
@@ -224,25 +248,49 @@ class EventService:
             if not user_id:
                 query = query.filter(False)
             else:
-                query = query.filter(Event.organizer_id == user_id)
+                query = query.filter(
+                    Event.organizer_id == user_id
+                )
 
         elif user_mode == "participant":
-            # Обычный пользователь видит опубликованные мероприятия
-            query = query.filter(Event.status == EventStatus.PUBLISHED.value)
+            # Участник видит опубликованные мероприятия
+            query = query.filter(
+                Event.status == EventStatus.PUBLISHED.value
+            )
+
+        elif user_mode == "speaker":
+            # Спикер видит мероприятия,
+            # где он назначен спикером в сессиях
+            query = (
+                query.join(Event.sessions)
+                .join(EventSession.participants)
+                .filter(SessionParticipant.user_id == user_id)
+                .distinct()
+            )
 
         else:
             # Безопасное поведение по умолчанию
-            query = query.filter(Event.status == EventStatus.PUBLISHED.value)
+            query = query.filter(
+                Event.status == EventStatus.PUBLISHED.value
+            )
 
-        # Обычные фильтры
+        # ---------------------------------------------------------
+        # FILTERS
+        # ---------------------------------------------------------
+
         if data.category_id:
-            query = query.filter(Event.category_id == data.category_id)
+            query = query.filter(
+                Event.category_id == data.category_id
+            )
 
         if data.status:
-            query = query.filter(Event.status == data.status)
+            query = query.filter(
+                Event.status == data.status
+            )
 
         if data.search:
             search_term = f"%{data.search}%"
+
             query = query.filter(
                 or_(
                     Event.title.ilike(search_term),
@@ -252,36 +300,70 @@ class EventService:
             )
 
         if data.start_from:
-            query = query.filter(Event.start_date >= data.start_from)
+            query = query.filter(
+                Event.start_date >= data.start_from
+            )
 
         if data.start_to:
-            query = query.filter(Event.start_date <= data.start_to)
+            query = query.filter(
+                Event.start_date <= data.start_to
+            )
 
-        query = query.order_by(Event.start_date.asc())
+        # ---------------------------------------------------------
+        # SORTING
+        # ---------------------------------------------------------
+
+        query = query.order_by(
+            Event.start_date.asc()
+        )
+
+        # ---------------------------------------------------------
+        # PAGINATION
+        # ---------------------------------------------------------
 
         total = query.count()
-        events = query.offset((data.page - 1) * data.limit).limit(data.limit).all()
+
+        events = (
+            query.offset((data.page - 1) * data.limit)
+            .limit(data.limit)
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # RESPONSE BUILD
+        # ---------------------------------------------------------
 
         result_items = []
+
         participant_role_id = get_role_id_by_name(
             db,
             RoleList.user
         )
 
         for event in events:
+
             participants_count = db.query(EventParticipant).filter(
                 EventParticipant.event_id == event.id,
                 EventParticipant.role_id == participant_role_id
             ).count()
+
             event.participants_count = participants_count
 
+            # Пользователь участвует?
             event.is_participant = False
-            if user_id:
-                event.is_participant = db.query(EventParticipant).filter(
-                    EventParticipant.event_id == event.id,
-                    EventParticipant.user_id == user_id
-                ).first() is not None
 
+            if user_id:
+                event.is_participant = (
+                        db.query(EventParticipant)
+                        .filter(
+                            EventParticipant.event_id == event.id,
+                            EventParticipant.user_id == user_id
+                        )
+                        .first()
+                        is not None
+                )
+
+            # Статус label
             event.status_label = EventStatusMap.EVENT_STATUS_LABELS.get(
                 event.status,
                 event.status

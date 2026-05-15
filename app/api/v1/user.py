@@ -9,10 +9,11 @@ from app.core.security import verify_password, hash_password
 from app.db.database import get_db
 from app.models import User
 from app.models.file_attachment import FileAttachment
-from app.schemas.user import UserProfileResponse, ChangePasswordRequest, UserUpdateRequest
+from app.schemas.user import UserProfileResponse, ChangePasswordRequest, UserUpdateRequest, EmailRequest
 from app.services.coordinator_invite_service import CoordinatorInviteService
 from app.services.file_service import FileService
 from app.core.enum import EntityType, AttachmentType
+from app.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
@@ -161,4 +162,24 @@ def search_users(
             }
             for user in users
         ]
+    }
+
+@router.post("/send-email")
+async def send_speaker_test_email(data: EmailRequest):
+
+    await NotificationService.send_email(
+        to=data.email,
+        subject="Приглашение спикера",
+        template_name="speaker_invite.html",
+        context={
+            "event_title": "Tech Future 2026",
+            "session_title": "AI и будущее образования",
+            "email": data.email,
+            "temporary_password": "TempPass123",
+            "login_url": "http://localhost:8000/login"
+        }
+    )
+
+    return {
+        "detail": "Письмо отправлено"
     }

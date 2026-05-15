@@ -1,4 +1,5 @@
 <!-- app/admin/templates/session_edit.html -->
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -16,7 +17,10 @@
             Назад к мероприятию
         </a>
     </div>
+
 </div>
+
+<!-- ===================== SESSION FORM ===================== -->
 
 <section class="card form-card">
     <div class="card-header">
@@ -29,39 +33,43 @@
     </div>
 
     <div class="card-body">
+        <div id="speaker-success" class="success-alert" style="display:none;"></div>
+        <div id="speaker-error" class="error-alert" style="display:none;"></div>
         <form id="session-form" class="admin-form">
             <div class="form-grid">
+
                 <div class="form-field form-field-wide">
                     <label for="session-title">Название сессии</label>
-                    <input type="text" id="session-title" placeholder="Введите название сессии" required>
+                    <input type="text" id="session-title" required>
                 </div>
 
                 <div class="form-field form-field-wide">
                     <label for="session-description">Описание</label>
-                    <textarea id="session-description" rows="5" placeholder="Опишите содержание сессии"></textarea>
+                    <textarea id="session-description" rows="5"></textarea>
                 </div>
 
                 <div class="form-field">
-                    <label for="session-start">Дата и время начала</label>
+                    <label for="session-start">Начало</label>
                     <input type="datetime-local" id="session-start" required>
                 </div>
 
                 <div class="form-field">
-                    <label for="session-end">Дата и время окончания</label>
+                    <label for="session-end">Окончание</label>
                     <input type="datetime-local" id="session-end" required>
                 </div>
 
                 <div class="form-field form-field-wide">
-                    <label for="session-location">Местоположение</label>
-                    <input type="text" id="session-location" placeholder="Например: Зал 1">
+                    <label for="session-location">Место</label>
+                    <input type="text" id="session-location">
                 </div>
+
             </div>
 
             <p id="error" class="error-alert" style="display:none;"></p>
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary" id="submit-btn">
-                    Сохранить изменения
+                    Сохранить
                 </button>
 
                 <button type="button" class="btn btn-ghost" onclick="goBack()">
@@ -70,6 +78,72 @@
             </div>
         </form>
     </div>
+
+</section>
+
+<!-- ===================== SPEAKERS ===================== -->
+
+<section class="card form-card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Спикеры</h2>
+            <p class="card-subtitle">Управление спикерами сессии</p>
+        </div>
+    </div>
+
+    <div class="card-body">
+
+        <button type="button" class="btn btn-secondary" onclick="toggleSpeakerForm()">
+            + Добавить спикера
+        </button>
+        <div id="speaker-list">
+            <div class="loading-state">Загрузка...</div>
+        </div>
+
+        <hr style="margin:24px 0;">
+
+        <div id="speaker-form-wrapper" style="display:none; margin-top:16px;">
+            <form id="speaker-form" class="admin-form">
+
+                <div class="form-grid">
+
+                    <div class="form-field">
+                        <label>Фамилия</label>
+                        <input id="speaker-last-name" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Имя</label>
+                        <input id="speaker-first-name" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Отчество</label>
+                        <input id="speaker-second-name">
+                    </div>
+
+                    <div class="form-field form-field-wide">
+                        <label>Email</label>
+                        <input id="speaker-email" type="email" required>
+                    </div>
+
+                    <div class="form-field form-field-wide">
+                        <label>Телефон</label>
+                        <input id="speaker-phone">
+                    </div>
+
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="speaker-submit-btn">
+                        Добавить спикера
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
 </section>
 
 <script>
@@ -80,235 +154,244 @@
     let eventEndDate = null;
 
     function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(";").shift();
-        return null;
+        const v = `; ${document.cookie}`;
+        const p = v.split(`; ${name}=`);
+        return p.length === 2 ? p.pop().split(";")[0] : null;
     }
 
-    function showError(message) {
-        const error = document.getElementById("error");
-        error.innerText = message;
-        error.style.display = "block";
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return "";
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
     }
 
-    function hideError() {
-        const error = document.getElementById("error");
-        error.innerText = "";
-        error.style.display = "none";
+    function showError(msg){
+        const el=document.getElementById("error");
+        el.innerText=msg; el.style.display="block";
     }
 
-    function setSubmitLoading(isLoading) {
-        const submitBtn = document.getElementById("submit-btn");
+    function toggleSpeakerForm() {
+        const el = document.getElementById("speaker-form-wrapper");
 
-        submitBtn.disabled = isLoading;
-        submitBtn.innerText = isLoading ? "Сохранение..." : "Сохранить изменения";
+        if (!el) return;
+
+        el.style.display = el.style.display === "none" ? "block" : "none";
     }
 
-    function toDateTimeLocal(value) {
-        if (!value) return "";
-
-        const date = new Date(value);
-
-        if (Number.isNaN(date.getTime())) {
-            return "";
-        }
-
-        return date.toISOString().slice(0, 16);
+    function hideError(){
+        const el=document.getElementById("error");
+        el.innerText=""; el.style.display="none";
     }
 
-    function formatDateTime(value) {
-        if (!value) return "не указано";
-
-        const date = new Date(value);
-
-        if (Number.isNaN(date.getTime())) {
-            return "не указано";
-        }
-
-        return date.toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit"
-        });
+    function setLoading(is){
+        const b=document.getElementById("submit-btn");
+        b.disabled=is;
+        b.innerText=is?"Сохранение...":"Сохранить";
     }
 
-    async function loadEventBounds() {
-        const token = getCookie("access_token");
+    function showSpeakerError(msg){
+        const el=document.getElementById("speaker-error");
+        el.innerText=msg; el.style.display="block";
+    }
 
-        if (!token) {
-            showError("Пользователь не авторизован");
-            return;
-        }
+    function hideSpeakerError(){
+        const el=document.getElementById("speaker-error");
+        el.innerText=""; el.style.display="none";
+    }
 
-        try {
-            const res = await fetch(`/api/v1/events/${eventId}`, {
-                headers: {
-                    "Authorization": "Bearer " + token,
-                    "X-User-Mode": localStorage.getItem("user_mode") || "organizer"
-                }
-            });
-
-            if (!res.ok) {
-                showError("Ошибка загрузки мероприятия");
-                return;
-            }
-
-            const event = await res.json();
-
-            eventStartDate = new Date(event.start_date);
-            eventEndDate = new Date(event.end_date);
-
-            const minValue = toDateTimeLocal(event.start_date);
-            const maxValue = toDateTimeLocal(event.end_date);
-
-            document.getElementById("session-start").min = minValue;
-            document.getElementById("session-start").max = maxValue;
-            document.getElementById("session-end").min = minValue;
-            document.getElementById("session-end").max = maxValue;
-
-            document.getElementById("event-date-hint").innerText =
-                `Сессия должна проходить в период мероприятия: ${formatDateTime(event.start_date)} — ${formatDateTime(event.end_date)}.`;
-
-        } catch (err) {
-            console.error(err);
-            showError("Ошибка соединения с сервером");
-        }
+    function showSpeakerSuccess(msg){
+        const el=document.getElementById("speaker-success");
+        el.innerText=msg; el.style.display="block";
     }
 
     async function loadSession() {
         const token = getCookie("access_token");
 
-        if (!token) {
-            showError("Пользователь не авторизован");
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/v1/sessions/${sessionId}`, {
-                headers: {
-                    "Authorization": "Bearer " + token
-                }
-            });
-
-            if (!res.ok) {
-                showError("Ошибка загрузки сессии");
-                return;
+        const res = await fetch(`/api/v1/sessions/${sessionId}`, {
+            headers: {
+                Authorization: "Bearer " + token
             }
+        });
 
-            const session = await res.json();
-
-            document.getElementById("session-title").value = session.title || "";
-            document.getElementById("session-description").value = session.description || "";
-            document.getElementById("session-start").value = toDateTimeLocal(session.start_date);
-            document.getElementById("session-end").value = toDateTimeLocal(session.end_date);
-            document.getElementById("session-location").value = session.location || "";
-
-        } catch (err) {
-            console.error(err);
-            showError("Ошибка соединения с сервером");
-        }
-    }
-
-    function validateSessionDates(startDate, endDate) {
-        if (!eventStartDate || !eventEndDate) {
-            return "Не удалось определить границы мероприятия";
-        }
-
-        if (endDate <= startDate) {
-            return "Дата окончания сессии должна быть позже даты начала";
-        }
-
-        if (startDate < eventStartDate) {
-            return "Дата начала сессии не может быть раньше даты начала мероприятия";
-        }
-
-        if (endDate > eventEndDate) {
-            return "Дата окончания сессии не может быть позже даты окончания мероприятия";
-        }
-
-        return null;
-    }
-
-    document.getElementById("session-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        hideError();
-
-        const token = getCookie("access_token");
-
-        if (!token) {
-            showError("Пользователь не авторизован");
+        if (!res.ok) {
+            alert("Ошибка загрузки сессии");
             return;
         }
 
-        const startDateValue = document.getElementById("session-start").value;
-        const endDateValue = document.getElementById("session-end").value;
+        const session = await res.json();
 
-        const startDate = new Date(startDateValue);
-        const endDate = new Date(endDateValue);
+        document.getElementById("session-title").value =
+            session.title || "";
 
-        const validationError = validateSessionDates(startDate, endDate);
+        document.getElementById("session-description").value =
+            session.description || "";
 
-        if (validationError) {
-            showError(validationError);
+        document.getElementById("session-location").value =
+            session.location || "";
+
+        if (session.start_date) {
+            document.getElementById("session-start").value =
+                session.start_date.slice(0, 16);
+        }
+
+        if (session.end_date) {
+            document.getElementById("session-end").value =
+                session.end_date.slice(0, 16);
+        }
+    }
+
+    async function loadSpeakers(){
+        const token=getCookie("access_token");
+        const el=document.getElementById("speaker-list");
+
+        el.innerHTML="Загрузка...";
+
+        const res=await fetch(`/api/v1/sessions/${sessionId}/speakers`,{
+            headers:{Authorization:"Bearer "+token}
+        });
+
+        if(!res.ok){
+            el.innerHTML="Ошибка загрузки";
             return;
         }
 
-        const data = {
-            title: document.getElementById("session-title").value.trim(),
-            description: document.getElementById("session-description").value.trim(),
-            start_date: startDate.toISOString(),
-            end_date: endDate.toISOString(),
-            location: document.getElementById("session-location").value.trim()
+        const data=await res.json();
+
+        if(!data.items.length){
+            el.innerHTML="<div>Спикеры не назначены</div>";
+            return;
+        }
+
+        el.innerHTML="";
+
+        data.items.forEach(s => {
+            const d = document.createElement("div");
+            d.className = "table-row speaker-row";
+
+            d.innerHTML = `
+                <div class="speaker-main">
+                    <div class="speaker-name">
+                        ${escapeHtml(s.last_name || "")} ${escapeHtml(s.first_name || "")}
+                    </div>
+
+                    <div class="speaker-meta">
+                        ${escapeHtml(s.email || "")}
+                        ${s.phone ? " · " + escapeHtml(s.phone) : ""}
+                    </div>
+                </div>
+
+                <div class="speaker-actions actions-cell">
+                    <button class="btn btn-ghost btn-sm" onclick="removeSpeaker('${s.id}')">
+                        Удалить
+                    </button>
+                </div>
+            `;
+
+            el.appendChild(d);
+        });
+    }
+
+    async function removeSpeaker(id){
+        const token=getCookie("access_token");
+
+        await fetch(`/api/v1/sessions/${sessionId}/speakers/${id}`,{
+            method:"DELETE",
+            headers:{Authorization:"Bearer "+token}
+        });
+
+        loadSpeakers();
+    }
+
+
+    // SESSION SAVE
+
+    document.getElementById("session-form").addEventListener("submit",async(e)=>{
+        e.preventDefault(); hideError(); setLoading(true);
+
+        const token=getCookie("access_token");
+
+        const payload={
+            title:document.getElementById("session-title").value,
+            description:document.getElementById("session-description").value,
+            start_date:new Date(document.getElementById("session-start").value).toISOString(),
+            end_date:new Date(document.getElementById("session-end").value).toISOString(),
+            location:document.getElementById("session-location").value
         };
 
-        setSubmitLoading(true);
+        const res=await fetch(`/api/v1/sessions/${sessionId}`,{
+            method:"PUT",
+            headers:{
+                Authorization:"Bearer "+token,
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify(payload)
+        });
 
-        try {
-            const res = await fetch(`/api/v1/sessions/${sessionId}`, {
-                method: "PUT",
-                headers: {
-                    "Authorization": "Bearer " + token,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (!res.ok) {
-                let message = "Ошибка при сохранении сессии";
-
-                try {
-                    const responseData = await res.json();
-                    message = responseData.detail || message;
-                } catch (err) {
-                    console.error(err);
-                }
-
-                showError(message);
-                return;
-            }
-
-            alert("Сессия обновлена");
-            window.location.href = `/admin/events/${eventId}`;
-
-        } catch (err) {
-            console.error(err);
-            showError("Ошибка соединения с сервером");
-        } finally {
-            setSubmitLoading(false);
+        if(!res.ok){
+            const d=await res.json().catch(()=>({}));
+            showError(d.detail||"Ошибка");
+            setLoading(false);
+            return;
         }
+
+        window.location.href=`/admin/events/${eventId}`;
     });
 
-    function goBack() {
-        window.location.href = `/admin/events/${eventId}`;
+
+    // SPEAKER FORM
+
+    document.getElementById("speaker-form").addEventListener("submit",async(e)=>{
+        e.preventDefault();
+
+        hideSpeakerError();
+
+        const token=getCookie("access_token");
+
+        const payload={
+            first_name:document.getElementById("speaker-first-name").value.trim(),
+            second_name:document.getElementById("speaker-second-name").value.trim(),
+            last_name:document.getElementById("speaker-last-name").value.trim(),
+            email:document.getElementById("speaker-email").value.trim(),
+            phone:document.getElementById("speaker-phone").value.trim()
+        };
+
+        const res=await fetch(`/api/v1/sessions/${sessionId}/speakers`,{
+            method:"POST",
+            headers:{
+                Authorization:"Bearer "+token,
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify(payload)
+        });
+
+        const data=await res.json();
+
+        if(!res.ok){
+            showSpeakerError(data.detail||"Ошибка");
+            return;
+        }
+
+        showSpeakerSuccess("Спикер добавлен");
+        e.target.reset();
+        loadSpeakers();
+    });
+
+
+    function goBack(){
+        window.location.href=`/admin/events/${eventId}`;
     }
 
-    document.addEventListener("DOMContentLoaded", async function () {
-        await loadEventBounds();
-        await loadSession();
+
+    document.addEventListener("DOMContentLoaded",()=>{
+        loadSession();
+        loadSpeakers();
     });
+
 </script>
 
 {% endblock %}

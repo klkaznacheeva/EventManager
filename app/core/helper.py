@@ -1,3 +1,6 @@
+import secrets
+import string
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -34,3 +37,8 @@ def get_role_id_by_name(
     )
 
     return role.id
+
+def generate_temporary_password(length: int = 12) -> str:
+    alphabet = string.ascii_letters + string.digits
+
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
