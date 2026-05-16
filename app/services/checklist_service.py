@@ -314,3 +314,70 @@ class ChecklistService:
 
             assignees=assignees
         )
+
+    @staticmethod
+    def get_coordinator_tasks(
+            db: Session,
+            event_id: UUID,
+            user_id: UUID
+    ):
+
+        tasks = (
+            db.query(ChecklistTask)
+            .join(
+                ChecklistTaskAssignee,
+                ChecklistTaskAssignee.task_id == ChecklistTask.id
+            )
+            .filter(
+                ChecklistTask.entity_type == "event",
+                ChecklistTask.entity_id == event_id,
+                ChecklistTaskAssignee.user_id == user_id
+            )
+            .order_by(ChecklistTask.created_at.desc())
+            .all()
+        )
+
+        return {
+            "items": tasks
+        }
+
+    @staticmethod
+    def create_coordinator_tasks(
+            db: Session,
+            event_id: UUID,
+            user_id: UUID,
+            tasks: list,
+            current_user_id: UUID
+    ):
+
+        created_tasks = []
+
+        for item in tasks:
+            task = ChecklistTask(
+                entity_type="event",
+                entity_id=event_id,
+
+                title=item.get("title"),
+                description=item.get("description"),
+
+                created_by=current_user_id
+            )
+
+            db.add(task)
+
+            db.flush()
+
+            assignee = ChecklistTaskAssignee(
+                task_id=task.id,
+                user_id=user_id
+            )
+
+            db.add(assignee)
+
+            created_tasks.append(task)
+
+        db.commit()
+
+        return {
+            "items": created_tasks
+        }

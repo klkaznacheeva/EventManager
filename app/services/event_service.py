@@ -504,3 +504,31 @@ class EventService:
             EventParticipant.event_id == event_id,
             EventParticipant.role_id == participant_role_id
         ).scalar()
+
+    @staticmethod
+    def get_coordinator_events(
+            db: Session,
+            user_id: UUID
+    ):
+
+        events = (
+            db.query(Event)
+            .join(
+                EventParticipant,
+                EventParticipant.event_id == Event.id
+            )
+            .join(
+                Role,
+                Role.id == EventParticipant.role_id
+            )
+            .filter(
+                EventParticipant.user_id == user_id,
+                Role.name == "coordinator"
+            )
+            .order_by(Event.start_date.desc())
+            .all()
+        )
+
+        return {
+            "items": events
+        }

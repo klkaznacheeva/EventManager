@@ -1,3 +1,4 @@
+# app/api/v1/checklist_router.py
 from uuid import UUID
 
 from fastapi import (
@@ -24,7 +25,7 @@ from app.core.jwt_dependency import get_current_user
 
 
 router = APIRouter(
-    prefix="/checklists",
+    prefix="/api/v1/checklists",
     tags=["Checklist"]
 )
 

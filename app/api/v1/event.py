@@ -1,5 +1,5 @@
 # app/api/v1/event.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from uuid import UUID
@@ -9,6 +9,7 @@ from app.core.jwt_dependency import get_required_user, get_current_user
 from app.db.database import get_db
 from app.models import Event, EventParticipant, Role
 from app.models.user import User
+from app.schemas.checklist import ChecklistTaskListResponse
 from app.schemas.coordinator_invite import CoordinatorInviteCreate
 from app.schemas.event import (
     EventCreateRequest,
@@ -18,6 +19,7 @@ from app.schemas.event import (
     EventListResponse, NeedsEditRequest
 )
 from app.schemas.event_coordinator import EventCoordinatorCreate
+from app.services.checklist_service import ChecklistService
 from app.services.coordinator_invite_service import CoordinatorInviteService
 from app.services.entity_message_service import EntityMessageService
 from app.services.event_coordinator_service import EventCoordinatorService
@@ -430,3 +432,50 @@ def remove_event_coordinator(
     return {
         "detail": "Coordinator removed"
     }
+
+@router.get(
+    "/{event_id}/coordinators/{user_id}/tasks"
+)
+def get_coordinator_tasks(
+        event_id: UUID,
+        user_id: UUID,
+
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+
+    return ChecklistService.get_coordinator_tasks(
+        db=db,
+        event_id=event_id,
+        user_id=user_id
+    )
+
+@router.post(
+    "/{event_id}/coordinators/{user_id}/tasks"
+)
+def create_coordinator_tasks(
+        event_id: UUID,
+        user_id: UUID,
+        data: dict,
+
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+
+    return ChecklistService.create_coordinator_tasks(
+        db=db,
+        event_id=event_id,
+        user_id=user_id,
+        tasks=data.get("tasks", []),
+        current_user_id=current_user.id
+    )
+
+@router.get("/coordinator/events")
+def get_coordinator_events(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    return EventService.get_coordinator_events(
+        db=db,
+        user_id=current_user.id
+    )

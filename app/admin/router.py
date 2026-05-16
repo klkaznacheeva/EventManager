@@ -172,3 +172,23 @@ def event_coordinators_page(
             "user_role": "admin" if user.is_system else "organizer"
         }
     )
+
+@router.get("/coordinator/tasks")
+def coordinator_tasks_page(request: Request):
+
+    return render_template(
+        "coordinator_tasks.html",
+        {
+            "request": request
+        }
+    )
+
+@router.get("/coordinator/events")
+def coordinator_events_page(request: Request):
+
+    return render_template(
+        "coordinator_events.html",
+        {
+            "request": request
+        }
+    )
