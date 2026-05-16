@@ -1323,3 +1323,33 @@ label {
     font-size: 11px;
     opacity: 0.6;
 }
+
+.modal-lg {
+    width: 700px;
+    max-width: 95%;
+}
+
+.task-create-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+
+    margin-bottom: 16px;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+
+    border: 1px solid #d1d5db;
+
+    border-radius: 10px;
+
+    padding: 12px;
+
+    font-size: 14px;
+}

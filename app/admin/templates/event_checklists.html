@@ -1,0 +1,205 @@
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between">
+        <h5>Checklist</h5>
+
+        <button
+                class="btn btn-primary btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#createChecklistModal"
+        >
+            Add task
+        </button>
+    </div>
+
+    <div class="card-body">
+
+        {% if tasks %}
+
+            {% for task in tasks %}
+
+                <div class="border rounded p-3 mb-3">
+
+                    <div class="d-flex justify-content-between">
+
+                        <div>
+                            <h6>{{ task.title }}</h6>
+
+                            <small class="text-muted">
+                                {{ task.description }}
+                            </small>
+                        </div>
+
+                        <div>
+                            {% if task.is_completed %}
+                                <span class="badge bg-success">
+                                    Completed
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning">
+                                    In progress
+                                </span>
+                            {% endif %}
+                        </div>
+
+                    </div>
+
+                    <hr>
+
+                    <div>
+
+                        <strong>Assigned coordinators:</strong>
+
+                        <div class="mt-2">
+
+                            {% for assignee in task.assignees %}
+
+                                <span class="badge bg-secondary">
+
+                                    {{ assignee.user.first_name }}
+                                    {{ assignee.user.last_name }}
+
+                                    {% if assignee.is_completed %}
+                                        ✅
+                                    {% endif %}
+
+                                </span>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <p class="text-muted">
+                No checklist tasks yet
+            </p>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
+<!-- ================================================= -->
+<!-- CREATE MODAL -->
+<!-- ================================================= -->
+
+<div
+        class="modal fade"
+        id="createChecklistModal"
+        tabindex="-1"
+>
+
+    <div class="modal-dialog modal-lg">
+
+        <div class="modal-content">
+
+            <form method="post">
+
+                <div class="modal-header">
+                    <h5>Create checklist task</h5>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Title
+                        </label>
+
+                        <input
+                                type="text"
+                                name="title"
+                                class="form-control"
+                                required
+                        >
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Description
+                        </label>
+
+                        <textarea
+                                name="description"
+                                class="form-control"
+                        ></textarea>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Deadline
+                        </label>
+
+                        <input
+                                type="datetime-local"
+                                name="deadline"
+                                class="form-control"
+                        >
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Assign coordinators
+                        </label>
+
+                        <select
+                                name="assignee_ids"
+                                class="form-select"
+                                multiple
+                        >
+
+                            {% for coordinator in coordinators %}
+
+                                <option value="{{ coordinator.id }}">
+                                    {{ coordinator.first_name }}
+                                    {{ coordinator.last_name }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button
+                            type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal"
+                    >
+                        Close
+                    </button>
+
+                    <button
+                            type="submit"
+                            class="btn btn-primary"
+                    >
+                        Create
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>

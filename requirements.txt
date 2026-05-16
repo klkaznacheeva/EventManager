@@ -9,4 +9,6 @@ pydantic[email]
 pydantic-settings
 bcrypt
 fastapi-mail
-jinja2
+pytest
+pytest-mock
+pytest-cov

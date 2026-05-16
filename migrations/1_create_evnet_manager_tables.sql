@@ -81,19 +81,6 @@ CREATE TABLE session_participants (
     UNIQUE(session_id, user_id)
 );
 
-CREATE TABLE tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    entity_type VARCHAR(50) NOT NULL,
-    entity_id UUID NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    status  BOOLEAN DEFAULT FALSE,
-    deadline TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_tasks_entity ON tasks(entity_type, entity_id);
-
 CREATE TABLE surveys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
