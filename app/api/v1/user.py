@@ -14,6 +14,7 @@ from app.services.coordinator_invite_service import CoordinatorInviteService
 from app.services.file_service import FileService
 from app.core.enum import EntityType, AttachmentType
 from app.services.notification_service import NotificationService
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
@@ -32,6 +33,8 @@ def get_profile(
 
     avatar_url = f"/{file.storage_path}" if file else None
 
+    roles = UserService.build_user_roles(db, current_user.id)
+
     return UserProfileResponse(
         id=current_user.id,
         first_name=current_user.first_name,
@@ -41,7 +44,8 @@ def get_profile(
         phone=current_user.phone,
         birth_date=current_user.birth_date,
         is_system=current_user.is_system,
-        avatar_url=avatar_url
+        avatar_url=avatar_url,
+        roles = roles
     )
 
 

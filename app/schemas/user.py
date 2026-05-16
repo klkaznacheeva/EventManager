@@ -1,9 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
+class RoleEventItem(BaseModel):
+    event_id: UUID
 
 class UserProfileResponse(BaseModel):
     id: UUID
@@ -15,6 +17,7 @@ class UserProfileResponse(BaseModel):
     birth_date: Optional[date] = None
     is_system: bool
     avatar_url: Optional[str] = None
+    roles: dict[str, list[RoleEventItem]] = {}
 
 class ChangePasswordRequest(BaseModel):
     old_password: str
