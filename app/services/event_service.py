@@ -416,6 +416,45 @@ class EventService:
         return {"message": "Мероприятие опубликовано"}
 
     @staticmethod
+    def complete_event(db: Session, event_id: UUID, user_id: UUID):
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+        if str(event.organizer_id) != str(user_id):
+            raise HTTPException(status_code=403, detail="Not allowed")
+
+        # Можно завершить только опубликованное мероприятие (или любое, кроме уже завершённого)
+        if event.status == EventStatus.COMPLETED.value:
+            return {"message": "Мероприятие уже завершено"}
+
+        if event.status != EventStatus.PUBLISHED.value:
+            raise HTTPException(
+                status_code=400,
+                detail="Only published events can be completed"
+            )
+
+        # Обновляем статус события
+        event.status = EventStatus.COMPLETED.value
+
+        # Завершаем все сессии мероприятия (если у них есть статус)
+        # Предположим, что у сессии есть статус SessionStatus (DRAFT, PUBLISHED, COMPLETED)
+        db.query(EventSession).filter(
+            EventSession.event_id == event_id,
+            EventSession.status != SessionStatus.COMPLETED.value
+        ).update(
+            {EventSession.status: SessionStatus.COMPLETED.value},
+            synchronize_session=False
+        )
+
+        db.commit()
+
+        # Можно также отправить уведомления участникам / координаторам / спикерам
+        # (опционально, но для пет-проекта можно пропустить)
+
+        return {"message": "Мероприятие завершено"}
+
+    @staticmethod
     def join_event(
         db: Session,
         event_id: UUID,

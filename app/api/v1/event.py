@@ -183,6 +183,18 @@ def publish_event(
         user_id=user.id
     )
 
+@router.post("/{event_id}/complete")
+def complete_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_required_user)
+):
+    return EventService.complete_event(
+        db=db,
+        event_id=event_id,
+        user_id=user.id
+    )
+
 @router.post("/{event_id}/upload-banner")
 def upload_event_banner(
     event_id: UUID,

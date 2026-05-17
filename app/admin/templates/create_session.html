@@ -2,6 +2,54 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    .speakers-list {
+        margin-top: 16px;
+    }
+    .speaker-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .speaker-info {
+        flex: 1;
+    }
+    .speaker-name {
+        font-weight: 600;
+    }
+    .speaker-meta {
+        font-size: 13px;
+        color: #718096;
+        margin-top: 4px;
+    }
+    .speaker-actions {
+        margin-left: 12px;
+    }
+    .btn-sm {
+        font-size: 12px;
+        padding: 4px 8px;
+    }
+    .add-speaker-form {
+        background: #f7fafc;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+        display: none;
+    }
+    .add-speaker-form.visible {
+        display: block;
+    }
+    .hint-text {
+        font-size: 13px;
+        color: #4a5568;
+        margin: 8px 0 12px;
+        background: #ebf8ff;
+        padding: 6px 12px;
+        border-radius: 6px;
+    }
+</style>
 
 <div class="page-header">
     <div>
@@ -10,24 +58,19 @@
             Добавьте сессию в программу мероприятия.
         </p>
     </div>
-
     <div class="btn-row">
-        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">
-            Назад к мероприятию
-        </a>
+        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">Назад к мероприятию</a>
     </div>
 </div>
 
+<!-- ОСНОВНАЯ ФОРМА -->
 <section class="card form-card">
     <div class="card-header">
         <div>
             <h2 class="card-title">Основная информация</h2>
-            <p class="card-subtitle">
-                Дата и время сессии должны находиться в пределах дат самого мероприятия.
-            </p>
+            <p class="card-subtitle">Дата и время сессии должны быть в пределах дат мероприятия.</p>
         </div>
     </div>
-
     <div class="card-body">
         <form id="create-session-form" class="admin-form">
             <div class="form-grid">
@@ -35,37 +78,30 @@
                     <label for="title">Название сессии</label>
                     <input type="text" id="title" placeholder="Например: Открывающая лекция" required>
                 </div>
-
                 <div class="form-field form-field-wide">
                     <label for="description">Описание</label>
                     <textarea id="description" rows="5" placeholder="Кратко опишите содержание сессии"></textarea>
                 </div>
-
                 <div class="form-field">
                     <label for="start_date">Дата и время начала</label>
                     <input type="datetime-local" id="start_date" required>
                 </div>
-
                 <div class="form-field">
                     <label for="end_date">Дата и время окончания</label>
                     <input type="datetime-local" id="end_date" required>
                 </div>
-
                 <div class="form-field">
                     <label for="location">Локация</label>
                     <input type="text" id="location" placeholder="Например: Зал 1">
                 </div>
-
                 <div class="form-field">
                     <label for="type">Тип сессии</label>
-                    <input type="text" id="type" placeholder="Например: Лекция, мастер-класс, доклад">
+                    <input type="text" id="type" placeholder="Например: Лекция, мастер-класс">
                 </div>
-
                 <div class="form-field">
                     <label for="age_limit">Возрастное ограничение</label>
-                    <input type="number" id="age_limit" placeholder="Например: 18" min="0">
+                    <input type="number" id="age_limit" placeholder="18" min="0">
                 </div>
-
                 <div class="form-field">
                     <label for="status">Статус</label>
                     <select id="status" required>
@@ -73,257 +109,298 @@
                     </select>
                 </div>
             </div>
-
-            <p id="error" class="error-alert" style="display:none;"></p>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="submit-btn">
-                    Создать сессию
-                </button>
-
-                <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">
-                    Отмена
-                </a>
-            </div>
+            <div id="form-error" class="error-alert" style="display:none;"></div>
         </form>
     </div>
 </section>
 
+<!-- БЛОК СПИКЕРОВ (добавляются до сохранения) -->
+<!--<section class="card form-card">-->
+<!--    <div class="card-header">-->
+<!--        <div>-->
+<!--            <h2 class="card-title">Спикеры</h2>-->
+<!--            <p class="card-subtitle">Укажите спикеров, которые будут выступать на этой сессии. Они будут добавлены после создания сессии автоматически.</p>-->
+<!--        </div>-->
+<!--    </div>-->
+<!--    <div class="card-body">-->
+<!--        <button type="button" class="btn btn-secondary" onclick="toggleAddSpeakerForm()">+ Добавить спикера</button>-->
+
+<!--        <div class="hint-text">-->
+<!--            ⚡ Спикеры сохранятся после нажатия кнопки «Создать сессию» внизу.-->
+<!--        </div>-->
+
+<!--        <div id="speakers-list" class="speakers-list"></div>-->
+
+<!--        &lt;!&ndash; Форма добавления спикера (скрыта) &ndash;&gt;-->
+<!--        <div id="add-speaker-form" class="add-speaker-form">-->
+<!--            <h4 style="margin-bottom: 12px;">Новый спикер</h4>-->
+<!--            <div class="form-grid">-->
+<!--                <div class="form-field">-->
+<!--                    <label>Фамилия</label>-->
+<!--                    <input id="speaker-last-name" class="form-input" placeholder="Иванов">-->
+<!--                </div>-->
+<!--                <div class="form-field">-->
+<!--                    <label>Имя</label>-->
+<!--                    <input id="speaker-first-name" class="form-input" placeholder="Иван">-->
+<!--                </div>-->
+<!--                <div class="form-field">-->
+<!--                    <label>Отчество</label>-->
+<!--                    <input id="speaker-second-name" class="form-input" placeholder="Иванович">-->
+<!--                </div>-->
+<!--                <div class="form-field form-field-wide">-->
+<!--                    <label>Email</label>-->
+<!--                    <input id="speaker-email" type="email" class="form-input" placeholder="speaker@example.com">-->
+<!--                </div>-->
+<!--                <div class="form-field form-field-wide">-->
+<!--                    <label>Телефон</label>-->
+<!--                    <input id="speaker-phone" class="form-input" placeholder="+7 999 123-45-67">-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div style="margin-top: 16px; display: flex; gap: 12px;">-->
+<!--                <button type="button" class="btn btn-primary btn-sm" onclick="addSpeakerToList()">Добавить</button>-->
+<!--                <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAddSpeakerForm()">Отмена</button>-->
+<!--            </div>-->
+<!--            <div id="speaker-add-error" class="error-alert" style="display:none; margin-top: 12px;"></div>-->
+<!--        </div>-->
+<!--    </div>-->
+<!--</section>-->
+
+<!-- Единая кнопка сохранения внизу -->
+<div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+    <button type="button" class="btn btn-primary" id="submit-btn" onclick="submitSessionForm()">Создать сессию</button>
+    <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">Отмена</a>
+</div>
+
 <script>
     const eventId = "{{ event_id }}";
-
-    let eventStartDate = null;
-    let eventEndDate = null;
+    let eventStartDate = null, eventEndDate = null;
+    let tempSpeakers = [];
 
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(";").shift();
-        return null;
+        return parts.length === 2 ? parts.pop().split(";").shift() : null;
     }
 
-    function showError(message) {
-        const error = document.getElementById("error");
-        error.innerText = message;
-        error.style.display = "block";
+    function showError(message, containerId = "form-error") {
+        const el = document.getElementById(containerId);
+        if (el) { el.innerText = message; el.style.display = "block"; }
     }
-
-    function hideError() {
-        const error = document.getElementById("error");
-        error.innerText = "";
-        error.style.display = "none";
+    function hideError(containerId = "form-error") {
+        const el = document.getElementById(containerId);
+        if (el) { el.innerText = ""; el.style.display = "none"; }
     }
-
     function setSubmitLoading(isLoading) {
-        const submitBtn = document.getElementById("submit-btn");
-
-        submitBtn.disabled = isLoading;
-        submitBtn.innerText = isLoading ? "Создание..." : "Создать сессию";
+        const btn = document.getElementById("submit-btn");
+        btn.disabled = isLoading;
+        btn.innerText = isLoading ? "Создание..." : "Создать сессию";
     }
 
+    // Даты
     function toDateTimeLocal(value) {
         if (!value) return "";
-
-        const date = new Date(value);
-
-        if (Number.isNaN(date.getTime())) {
-            return "";
-        }
-
-        return date.toISOString().slice(0, 16);
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 16);
     }
-
     function formatDateTime(value) {
         if (!value) return "не указано";
-
-        const date = new Date(value);
-
-        if (Number.isNaN(date.getTime())) {
-            return "не указано";
-        }
-
-        return date.toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit"
-        });
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? "не указано" : d.toLocaleString("ru-RU");
     }
 
     async function loadEventBounds() {
         const token = getCookie("access_token");
-
-        if (!token) {
-            showError("Пользователь не авторизован");
-            return;
-        }
-
+        if (!token) return showError("Не авторизован");
         try {
             const res = await fetch(`/api/v1/events/${eventId}`, {
-                headers: {
-                    "Authorization": "Bearer " + token,
-                    "X-User-Mode": localStorage.getItem("user_mode") || "organizer"
-                }
+                headers: { "Authorization": `Bearer ${token}`, "X-User-Mode": localStorage.getItem("user_mode") || "organizer" }
             });
-
-            if (!res.ok) {
-                showError("Ошибка загрузки мероприятия");
-                return;
-            }
-
-            const event = await res.json();
-
-            eventStartDate = new Date(event.start_date);
-            eventEndDate = new Date(event.end_date);
-
-            const minValue = toDateTimeLocal(event.start_date);
-            const maxValue = toDateTimeLocal(event.end_date);
-
-            document.getElementById("start_date").min = minValue;
-            document.getElementById("start_date").max = maxValue;
-            document.getElementById("end_date").min = minValue;
-            document.getElementById("end_date").max = maxValue;
-
-            document.getElementById("event-date-hint").innerText =
-                `Сессия должна проходить в период мероприятия: ${formatDateTime(event.start_date)} — ${formatDateTime(event.end_date)}.`;
-
+            if (!res.ok) throw new Error();
+            const ev = await res.json();
+            eventStartDate = new Date(ev.start_date);
+            eventEndDate = new Date(ev.end_date);
+            const min = toDateTimeLocal(ev.start_date), max = toDateTimeLocal(ev.end_date);
+            document.getElementById("start_date").min = min;
+            document.getElementById("start_date").max = max;
+            document.getElementById("end_date").min = min;
+            document.getElementById("end_date").max = max;
+            document.getElementById("event-date-hint").innerHTML = `Сессия должна быть в период: ${formatDateTime(ev.start_date)} — ${formatDateTime(ev.end_date)}.`;
         } catch (err) {
-            console.error(err);
-            showError("Ошибка соединения с сервером");
+            showError("Ошибка загрузки границ мероприятия");
         }
     }
 
     async function loadStatuses() {
         const select = document.getElementById("status");
-
         try {
             const res = await fetch("/api/v1/enums/session-statuses");
-
-            if (!res.ok) {
-                select.innerHTML = `<option value="">Ошибка загрузки статусов</option>`;
-                return;
-            }
-
+            if (!res.ok) throw new Error();
             const data = await res.json();
-
-            select.innerHTML = `<option value="">Выберите статус</option>`;
-
+            select.innerHTML = '<option value="">Выберите статус</option>';
             data.items.forEach(item => {
-                const option = document.createElement("option");
-                option.value = item.value;
-                option.textContent = item.label;
-                select.appendChild(option);
+                const opt = document.createElement("option");
+                opt.value = item.value;
+                opt.textContent = item.label;
+                select.appendChild(opt);
             });
-
         } catch (err) {
-            console.error("Ошибка загрузки статусов:", err);
-            select.innerHTML = `<option value="">Ошибка загрузки статусов</option>`;
+            select.innerHTML = '<option value="">Ошибка загрузки статусов</option>';
         }
     }
 
     function validateSessionDates(startDate, endDate) {
-        if (!eventStartDate || !eventEndDate) {
-            return "Не удалось определить границы мероприятия";
-        }
-
-        if (endDate <= startDate) {
-            return "Дата окончания сессии должна быть позже даты начала";
-        }
-
-        if (startDate < eventStartDate) {
-            return "Дата начала сессии не может быть раньше даты начала мероприятия";
-        }
-
-        if (endDate > eventEndDate) {
-            return "Дата окончания сессии не может быть позже даты окончания мероприятия";
-        }
-
+        if (!eventStartDate || !eventEndDate) return "Нет данных о мероприятии";
+        if (endDate <= startDate) return "Окончание должно быть позже начала";
+        if (startDate < eventStartDate) return "Начало сессии раньше начала мероприятия";
+        if (endDate > eventEndDate) return "Окончание сессии позже окончания мероприятия";
         return null;
     }
 
-    async function createSession(e) {
-        e.preventDefault();
+    // ---------- Управление спикерами ----------
+    function renderSpeakersList() {
+        const container = document.getElementById("speakers-list");
+        if (!tempSpeakers.length) {
+            container.innerHTML = "<div style='margin-top: 12px; color: #718096;'>Спикеры не добавлены</div>";
+            return;
+        }
+        container.innerHTML = "";
+        tempSpeakers.forEach((s, idx) => {
+            const div = document.createElement("div");
+            div.className = "speaker-item";
+            div.innerHTML = `
+                <div class="speaker-info">
+                    <div class="speaker-name">${escapeHtml(s.last_name)} ${escapeHtml(s.first_name)} ${escapeHtml(s.second_name || "")}</div>
+                    <div class="speaker-meta">${escapeHtml(s.email)} ${s.phone ? "· " + escapeHtml(s.phone) : ""}</div>
+                </div>
+                <div class="speaker-actions">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeSpeaker(${idx})">Удалить</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function removeSpeaker(index) {
+        tempSpeakers.splice(index, 1);
+        renderSpeakersList();
+    }
+
+    function toggleAddSpeakerForm() {
+        const form = document.getElementById("add-speaker-form");
+        form.classList.toggle("visible");
+        if (!form.classList.contains("visible")) {
+            document.getElementById("speaker-first-name").value = "";
+            document.getElementById("speaker-second-name").value = "";
+            document.getElementById("speaker-last-name").value = "";
+            document.getElementById("speaker-email").value = "";
+            document.getElementById("speaker-phone").value = "";
+            hideError("speaker-add-error");
+        }
+    }
+
+    function addSpeakerToList() {
+        const first = document.getElementById("speaker-first-name").value.trim();
+        const last = document.getElementById("speaker-last-name").value.trim();
+        const email = document.getElementById("speaker-email").value.trim();
+        if (!first || !last || !email) {
+            showError("Заполните имя, фамилию и email", "speaker-add-error");
+            return;
+        }
+        tempSpeakers.push({
+            first_name: first,
+            second_name: document.getElementById("speaker-second-name").value.trim(),
+            last_name: last,
+            email: email,
+            phone: document.getElementById("speaker-phone").value.trim()
+        });
+        renderSpeakersList();
+        toggleAddSpeakerForm();
+    }
+
+    async function addSpeakersToSession(sessionId, speakers, token) {
+        for (const sp of speakers) {
+            const res = await fetch(`/api/v1/sessions/${sessionId}/speakers`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify(sp)
+            });
+            if (!res.ok) {
+                console.error(`Ошибка добавления спикера ${sp.email}`);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // ---------- Основной сабмит ----------
+    async function submitSessionForm() {
         hideError();
-
         const token = getCookie("access_token");
+        if (!token) return showError("Не авторизован");
 
-        if (!token) {
-            showError("Пользователь не авторизован");
-            return;
-        }
-
-        const startDateValue = document.getElementById("start_date").value;
-        const endDateValue = document.getElementById("end_date").value;
-
-        const startDate = new Date(startDateValue);
-        const endDate = new Date(endDateValue);
-
-        const validationError = validateSessionDates(startDate, endDate);
-
-        if (validationError) {
-            showError(validationError);
-            return;
-        }
-
-        const ageLimitValue = document.getElementById("age_limit").value;
+        // Валидация дат
+        const start = new Date(document.getElementById("start_date").value);
+        const end = new Date(document.getElementById("end_date").value);
+        const dateError = validateSessionDates(start, end);
+        if (dateError) return showError(dateError);
 
         const payload = {
             event_id: eventId,
             title: document.getElementById("title").value.trim(),
             description: document.getElementById("description").value.trim(),
-            start_date: startDate.toISOString(),
-            end_date: endDate.toISOString(),
+            start_date: start.toISOString(),
+            end_date: end.toISOString(),
             location: document.getElementById("location").value.trim(),
             type: document.getElementById("type").value.trim(),
-            age_limit: ageLimitValue ? parseInt(ageLimitValue) : null,
+            age_limit: parseInt(document.getElementById("age_limit").value) || null,
             status: document.getElementById("status").value
         };
 
         setSubmitLoading(true);
-
         try {
-            const res = await fetch("/api/v1/sessions/", {
+            // 1. Создаём сессию
+            const createRes = await fetch("/api/v1/sessions/", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer " + token
-                },
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                 body: JSON.stringify(payload)
             });
-
-            if (!res.ok) {
-                let message = "Ошибка создания сессии";
-
-                try {
-                    const data = await res.json();
-                    message = data.detail || message;
-                } catch (err) {
-                    console.error(err);
-                }
-
-                showError(message);
-                return;
+            if (!createRes.ok) {
+                const errData = await createRes.json().catch(() => ({}));
+                throw new Error(errData.detail || "Ошибка создания сессии");
             }
+            const session = await createRes.json();
+            const sessionId = session.id;
 
+            // 2. Добавляем спикеров
+            if (tempSpeakers.length) {
+                const success = await addSpeakersToSession(sessionId, tempSpeakers, token);
+                if (!success) {
+                    alert("Сессия создана, но один из спикеров не добавился. Проверьте данные или добавьте позже.");
+                }
+            }
+            // 3. Редирект
             window.location.href = `/admin/events/${eventId}`;
-
         } catch (err) {
-            console.error(err);
-            showError("Ошибка соединения с сервером");
+            showError(err.message);
         } finally {
             setSubmitLoading(false);
         }
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
+    function escapeHtml(str) {
+        if (!str) return "";
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
         loadEventBounds();
         loadStatuses();
-
-        document
-            .getElementById("create-session-form")
-            .addEventListener("submit", createSession);
+        renderSpeakersList();
     });
 </script>
-
 {% endblock %}

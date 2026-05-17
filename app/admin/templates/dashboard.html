@@ -2,11 +2,49 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    /* Дополнительные стили для ролей и кнопок */
+    .role-badges {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+    }
+    .role-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 500;
+        border-radius: 12px;
+        background: #f0f0f0;
+        color: #333;
+    }
+    .role-badge.role-organizer { background: #e3f2fd; color: #0b5e7e; }
+    .role-badge.role-coordinator { background: #e8f5e9; color: #2e6b2f; }
+    .role-badge.role-speaker { background: #fff3e0; color: #b45f06; }
+    .role-badge.role-participant { background: #ede7f6; color: #4527a0; }
+    .role-badge.role-none { background: #f5f5f5; color: #999; }
+
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .action-buttons .btn-sm {
+        white-space: nowrap;
+    }
+    .btn-warning {
+        background-color: #ed8936;
+        color: white;
+    }
+    .btn-warning:hover {
+        background-color: #dd6b20;
+    }
+</style>
 
 <div class="page-header">
     <div>
         <h1 class="page-title">Панель мероприятий</h1>
-
         <p class="page-description">
             Привет, {{ user_name }}.
             Здесь можно просматривать мероприятия и управлять ими
@@ -15,381 +53,364 @@
     </div>
 
     <div class="btn-row">
-
         <button class="btn btn-secondary" id="switch-mode-btn" onclick="switchMode()">
             Сменить режим
         </button>
-
         <button class="btn btn-ghost" onclick="goToProfile()">
             Профиль
         </button>
-
         <button class="btn btn-ghost">
             <a href="/admin/coordinator/events" class="sidebar-link">Мои мероприятия</a>
         </button>
-
         <button class="btn btn-primary" id="create-event-btn" onclick="goToCreateEvent()">
             Создать мероприятие
         </button>
-
     </div>
 </div>
 
 <div class="dashboard-summary">
-
     <div class="summary-card">
         <div class="summary-label">Режим работы</div>
         <div class="summary-value" id="current-mode">Загрузка...</div>
     </div>
-
     <div class="summary-card">
         <div class="summary-label">Всего мероприятий</div>
         <div class="summary-value" id="events-count">0</div>
     </div>
-
 </div>
 
 <section class="card">
-
     <div class="card-header">
-
         <div>
             <h2 class="card-title">Список мероприятий</h2>
-
             <p class="card-subtitle">
                 Все доступные мероприятия отображаются
                 с учетом текущего режима пользователя.
             </p>
         </div>
-
         <div class="dashboard-filter" id="status-filter-wrap" style="display:none;">
             <label for="status-filter">Статус</label>
             <select id="status-filter" onchange="applyStatusFilter()"></select>
         </div>
-
     </div>
 
     <div class="card-body">
-
         <div id="loading-state" class="loading-state">
             Загрузка мероприятий...
         </div>
-
         <div id="empty-state" class="empty-state" style="display:none;">
             <div class="empty-title">Мероприятия не найдены</div>
             <div class="empty-text">Пока нет доступных мероприятий.</div>
         </div>
-
         <div class="table-wrapper" id="table-wrapper" style="display:none;">
-
             <table class="events-table" id="events-table">
-
                 <thead>
-                <tr>
-                    <th>Название</th>
-                    <th>Описание</th>
-                    <th>Дата начала</th>
-                    <th>Дата окончания</th>
-                    <th>Статус</th>
-                    <th>Действия</th>
-                </tr>
+                    <tr>
+                        <th>Название</th>
+                        <th>Описание</th>
+                        <th>Дата начала</th>
+                        <th>Дата окончания</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
                 </thead>
-
                 <tbody></tbody>
-
             </table>
-
         </div>
-
     </div>
-
 </section>
 
 <script>
+    let allEvents = [];
+    let currentProfile = null;
+    let statusMap = {};
 
-let allEvents = [];
-let currentProfile = null;
-let currentUserMode = null;
-
-/* =========================
-   РОЛИ (FRONT MAP)
-========================= */
-let roleMap = {
-    organizer: [],
-    coordinator: [],
-    speaker: []
-};
-
-function getEventRole(eventId) {
-
-    const id = String(eventId);
-
-    if (roleMap.organizer.includes(id)) return "organizer";
-    if (roleMap.coordinator.includes(id)) return "coordinator";
-    if (roleMap.speaker.includes(id)) return "speaker";
-
-    return null;
-}
-
-/* ========================= */
-
-function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-
-    if (parts.length === 2) {
-        return parts.pop().split(";").shift();
-    }
-    return null;
-}
-
-function escapeHtml(value) {
-    if (value === null || value === undefined) return "";
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-function formatDate(value) {
-    if (!value) return "Не указано";
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Не указано";
-
-    return date.toLocaleString("ru-RU", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-    });
-}
-
-function getUserMode(profile) {
-    if (profile.is_system) return null;
-    return localStorage.getItem("user_mode") || "organizer";
-}
-
-function getModeLabel(profile, mode) {
-    if (profile.is_system) return "Администратор";
-    if (mode === "participant") return "Участник";
-    return "Организатор";
-}
-
-function getStatusClass(event) {
-    const status = String(event.status || "").toLowerCase();
-
-    if (status.includes("published")) return "status-published";
-    if (status.includes("reviewed")) return "status-reviewed";
-    if (status.includes("pending")) return "status-pending";
-    if (status.includes("draft")) return "status-draft";
-    if (status.includes("rejected") || status.includes("needs")) return "status-needs-edit";
-
-    return "";
-}
-
-async function loadProfile() {
-    const token = getCookie("access_token");
-
-    const res = await fetch("/api/v1/users/profile", {
-        headers: { "Authorization": "Bearer " + token }
-    });
-
-    if (!res.ok) return null;
-    return await res.json();
-}
-
-async function loadEvents() {
-
-    const token = getCookie("access_token");
-
-    const loadingState = document.getElementById("loading-state");
-    const emptyState = document.getElementById("empty-state");
-    const tableWrapper = document.getElementById("table-wrapper");
-
-    loadingState.style.display = "block";
-    emptyState.style.display = "none";
-    tableWrapper.style.display = "none";
-
-    const profile = await loadProfile();
-    if (!profile) {
-        loadingState.innerText = "Не удалось загрузить профиль";
-        return;
-    }
-
-    currentProfile = profile;
-    currentUserMode = getUserMode(profile);
-
-    /* =========================
-       МАП РОЛЕЙ ИЗ ПАЯ
-    ========================= */
-    roleMap = {
-        organizer: profile.roles?.organizer || [],
-        coordinator: profile.roles?.coordinator || [],
-        speaker: profile.roles?.speaker || []
+    let roleMap = {
+        organizer: [],
+        coordinator: [],
+        speaker: [],
+        participant: []
     };
 
-    setupUI(currentProfile, currentUserMode);
-
-    const res = await fetch("/api/v1/events?page=1&limit=100", {
-        headers: {
-            "Authorization": "Bearer " + token,
-            ...(currentUserMode && { "X-User-Mode": currentUserMode })
+    // ---------- Загрузка статусов из API ----------
+    async function loadEventStatuses() {
+        const token = getCookie("access_token");
+        try {
+            const res = await fetch("/api/v1/event-statuses", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            if (data.items) {
+                statusMap = {};
+                data.items.forEach(item => {
+                    statusMap[item.value] = item.label;
+                });
+            }
+        } catch (e) {
+            console.warn("Не удалось загрузить статусы", e);
+            statusMap = {
+                draft: "Черновик",
+                pending: "На проверке",
+                reviewed: "Проверено",
+                published: "Опубликовано",
+                needs_edit: "Требует редактирования",
+                completed: "Завершено"
+            };
         }
-    });
-
-    if (!res.ok) {
-        loadingState.style.display = "none";
-        alert("Ошибка получения мероприятий");
-        return;
     }
 
-    const data = await res.json();
-    allEvents = data.items || [];
+    function populateStatusFilter() {
+        const select = document.getElementById("status-filter");
+        if (!select) return;
+        select.innerHTML = '<option value="">Все статусы</option>';
+        for (const [value, label] of Object.entries(statusMap)) {
+            select.innerHTML += `<option value="${value}">${label}</option>`;
+        }
+        document.getElementById("status-filter-wrap").style.display = "block";
+    }
 
-    renderEventsTable();
-}
+    // ---------- Утилиты ----------
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
 
-function applyStatusFilter() {
-    renderEventsTable();
-}
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return "";
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
 
-function getFilteredEvents() {
-    const filter = document.getElementById("status-filter")?.value || "";
-    if (!filter) return allEvents;
-    return allEvents.filter(e => e.status === filter);
-}
+    function formatDate(value) {
+        if (!value) return "Не указано";
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return "Не указано";
+        return date.toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
 
-function renderEventsTable() {
+    function getStatusClass(event) {
+        const status = String(event.status || "").toLowerCase();
+        if (status.includes("published")) return "status-published";
+        if (status.includes("reviewed")) return "status-reviewed";
+        if (status.includes("pending")) return "status-pending";
+        if (status.includes("draft")) return "status-draft";
+        if (status.includes("rejected") || status.includes("needs")) return "status-needs-edit";
+        return "";
+    }
 
-    const loadingState = document.getElementById("loading-state");
-    const emptyState = document.getElementById("empty-state");
-    const tableWrapper = document.getElementById("table-wrapper");
-    const tbody = document.querySelector("#events-table tbody");
+    function parseRoleEvents(roleArray) {
+        if (!Array.isArray(roleArray)) return [];
+        return roleArray.map(item => String(item.event_id));
+    }
 
-    const items = getFilteredEvents();
+    // ---------- Профиль и роли ----------
+    async function loadProfile() {
+        const token = getCookie("access_token");
+        const res = await fetch("/api/v1/users/profile", {
+            headers: { "Authorization": "Bearer " + token }
+        });
+        if (!res.ok) return null;
+        const profile = await res.json();
 
-    document.getElementById("events-count").innerText = items.length;
+        roleMap = {
+            organizer: parseRoleEvents(profile.roles?.organizer),
+            coordinator: parseRoleEvents(profile.roles?.coordinator),
+            speaker: parseRoleEvents(profile.roles?.speaker),
+            participant: parseRoleEvents(profile.roles?.participant)
+        };
+        return profile;
+    }
 
-    tbody.innerHTML = "";
+    function getEventRoles(eventId) {
+        const id = String(eventId);
+        const roles = [];
+        if (roleMap.organizer.includes(id)) roles.push("Организатор");
+        if (roleMap.coordinator.includes(id)) roles.push("Координатор");
+        if (roleMap.speaker.includes(id)) roles.push("Спикер");
+        if (roleMap.participant.includes(id)) roles.push("Участник");
+        return roles;
+    }
 
-    if (!items.length) {
-        loadingState.style.display = "none";
-        emptyState.style.display = "block";
+    // ---------- Загрузка и отображение событий ----------
+    async function loadEvents() {
+        const token = getCookie("access_token");
+        const loadingState = document.getElementById("loading-state");
+        const emptyState = document.getElementById("empty-state");
+        const tableWrapper = document.getElementById("table-wrapper");
+
+        loadingState.style.display = "block";
+        emptyState.style.display = "none";
         tableWrapper.style.display = "none";
-        return;
+
+        const profile = await loadProfile();
+        if (!profile) {
+            loadingState.innerText = "Не удалось загрузить профиль";
+            return;
+        }
+        currentProfile = profile;
+
+        await loadEventStatuses();
+        populateStatusFilter();
+
+        let userMode = localStorage.getItem("user_mode") || "organizer";
+        document.getElementById("current-mode").innerText =
+            profile.is_system ? "Администратор" : (userMode === "participant" ? "Участник" : "Организатор");
+
+        const res = await fetch("/api/v1/events?page=1&limit=100", {
+            headers: {
+                "Authorization": "Bearer " + token,
+                "X-User-Mode": userMode
+            }
+        });
+
+        if (!res.ok) {
+            loadingState.style.display = "none";
+            alert("Ошибка получения мероприятий");
+            return;
+        }
+
+        const data = await res.json();
+        allEvents = data.items || [];
+        renderEventsTable();
     }
 
-    items.forEach(event => {
+    function applyStatusFilter() {
+        renderEventsTable();
+    }
 
-        const role = getEventRole(event.id);
+    function getFilteredEvents() {
+        const filter = document.getElementById("status-filter")?.value || "";
+        if (!filter) return allEvents;
+        return allEvents.filter(e => e.status === filter);
+    }
 
-        const tr = document.createElement("tr");
+    function renderEventsTable() {
+        const loadingState = document.getElementById("loading-state");
+        const emptyState = document.getElementById("empty-state");
+        const tableWrapper = document.getElementById("table-wrapper");
+        const tbody = document.querySelector("#events-table tbody");
 
-        let actionsHtml = `
-            <button class="btn btn-secondary btn-sm" onclick="goToEvent('${event.id}')">
-                Детали
-            </button>
-        `;
+        const items = getFilteredEvents();
+        document.getElementById("events-count").innerText = items.length;
+        tbody.innerHTML = "";
 
-        if (currentUserMode === "organizer") {
+        if (!items.length) {
+            loadingState.style.display = "none";
+            emptyState.style.display = "block";
+            tableWrapper.style.display = "none";
+            return;
+        }
 
-            if (event.status !== "published") {
-                actionsHtml += `
-                    <button class="btn btn-success btn-sm" onclick="publishEvent('${event.id}')">
-                        Опубликовать
-                    </button>
-                `;
+        items.forEach(event => {
+            // ---- статус (русский) ----
+            const statusText = statusMap[event.status] || event.status || "—";
+
+            // ---- роли (бейджи) ----
+            const roles = getEventRoles(event.id);
+            let roleBadgesHtml = '';
+            if (roles.length) {
+                roleBadgesHtml = `<div class="role-badges">${roles.map(role => `<span class="role-badge role-${role.toLowerCase()}">${role}</span>`).join('')}</div>`;
+            } else {
+                roleBadgesHtml = '<span class="role-badge role-none">—</span>';
             }
 
-            actionsHtml += `
-                <button class="btn btn-secondary btn-sm" onclick="editEvent('${event.id}')">
-                    Редактировать
-                </button>
+            // ---- кнопки действий ----
+            let userMode = localStorage.getItem("user_mode") || "organizer";
+            let actionButtons = [
+                `<button class="btn btn-secondary btn-sm" onclick="goToEvent('${event.id}')">Детали</button>`
+            ];
+            if (userMode === "organizer") {
+                // Кнопка "Опубликовать" – только для неопубликованных и незавершённых
+                if (event.status !== "published" && event.status !== "completed") {
+                    actionButtons.push(`<button class="btn btn-success btn-sm" onclick="publishEvent('${event.id}')">Опубликовать</button>`);
+                }
+                // Кнопка "Завершить" – только для опубликованных
+                if (event.status === "published") {
+                    actionButtons.push(`<button class="btn btn-warning btn-sm" onclick="completeEvent('${event.id}')">Завершить</button>`);
+                }
+                // Кнопки редактирования и удаления (оставляем для всех статусов)
+                actionButtons.push(
+                    `<button class="btn btn-secondary btn-sm" onclick="editEvent('${event.id}')">Редактировать</button>`,
+                    `<button class="btn btn-danger btn-sm" onclick="deleteEvent('${event.id}')">Удалить</button>`
+                );
+            }
+            const actionsHtml = `<div class="action-buttons">${actionButtons.join('')}</div>`;
 
-                <button class="btn btn-danger btn-sm" onclick="deleteEvent('${event.id}')">
-                    Удалить
-                </button>
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>
+                    <div class="event-title">${escapeHtml(event.title)}</div>
+                    ${roleBadgesHtml}
+                </td>
+                <td>${escapeHtml(event.description || "Описание не указано")}</td>
+                <td>${formatDate(event.start_date)}</td>
+                <td>${formatDate(event.end_date)}</td>
+                <td><span class="status-badge ${getStatusClass(event)}">${escapeHtml(statusText)}</span></td>
+                <td>${actionsHtml}</td>
             `;
+            tbody.appendChild(tr);
+        });
+
+        loadingState.style.display = "none";
+        emptyState.style.display = "none";
+        tableWrapper.style.display = "block";
+    }
+
+    // ---------- Действия ----------
+    function goToEvent(id) { window.location.href = `/admin/events/${id}`; }
+    function goToCreateEvent() { window.location.href = "/admin/events/create"; }
+    function goToProfile() { window.location.href = "/admin/profile"; }
+    function switchMode() { window.location.href = "/admin/mode-select"; }
+
+    async function publishEvent(eventId) {
+        const token = getCookie("access_token");
+        const res = await fetch(`/api/v1/events/${eventId}/publish`, {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        });
+        if (!res.ok) return alert("Ошибка публикации");
+        alert("Опубликовано");
+        loadEvents();
+    }
+
+    async function completeEvent(eventId) {
+        if (!confirm("Вы уверены, что хотите завершить мероприятие? Это действие нельзя отменить.")) {
+            return;
         }
+        const token = getCookie("access_token");
+        const res = await fetch(`/api/v1/events/${eventId}/complete`, {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        });
+        if (!res.ok) {
+            let errorMsg = "Ошибка завершения";
+            try {
+                const err = await res.json();
+                errorMsg = err.detail || errorMsg;
+            } catch(e) {}
+            alert(errorMsg);
+            return;
+        }
+        alert("Мероприятие завершено");
+        loadEvents(); // обновляем список
+    }
 
-        tr.innerHTML = `
-            <td>
-                <div class="event-title">
+    function editEvent(id) { window.location.href = `/admin/events/${id}/edit`; }
+    function deleteEvent(id) { if(confirm("Удалить?")) { /* вызвать API удаления */ } }
 
-                    ${role ? `<span>[${role}] </span>` : ""}
-
-                    ${escapeHtml(event.title)}
-
-                </div>
-            </td>
-
-            <td>
-                ${escapeHtml(event.description || "Описание не указано")}
-            </td>
-
-            <td>${formatDate(event.start_date)}</td>
-            <td>${formatDate(event.end_date)}</td>
-
-            <td>
-                <span class="status-badge ${getStatusClass(event)}">
-                    ${escapeHtml(event.status || "—")}
-                </span>
-            </td>
-
-            <td>
-                ${actionsHtml}
-            </td>
-        `;
-
-        tbody.appendChild(tr);
-    });
-
-    loadingState.style.display = "none";
-    emptyState.style.display = "none";
-    tableWrapper.style.display = "block";
-}
-
-function setupUI(profile, mode) {
-    document.getElementById("current-mode").innerText = getModeLabel(profile, mode);
-}
-
-function goToEvent(id) {
-    window.location.href = `/admin/events/${id}`;
-}
-
-function goToCreateEvent() {
-    window.location.href = "/admin/events/create";
-}
-
-function goToProfile() {
-    window.location.href = "/admin/profile";
-}
-
-function switchMode() {
-    window.location.href = "/admin/mode-select";
-}
-
-async function publishEvent(eventId) {
-
-    const token = getCookie("access_token");
-
-    const res = await fetch(`/api/v1/events/${eventId}/publish`, {
-        method: "POST",
-        headers: { "Authorization": "Bearer " + token }
-    });
-
-    if (!res.ok) return alert("Ошибка публикации");
-
-    alert("Опубликовано");
-    loadEvents();
-}
-
-document.addEventListener("DOMContentLoaded", loadEvents);
-
+    document.addEventListener("DOMContentLoaded", loadEvents);
 </script>
-
 {% endblock %}

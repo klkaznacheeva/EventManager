@@ -1384,3 +1384,69 @@ label {
     color: #2e7d32;
     border: 1px solid #c8e6c9;
 }
+
+/* Кнопки действий */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.action-buttons .btn-sm {
+    white-space: nowrap;
+}
+
+/* Улучшаем отображение таблицы на маленьких экранах */
+@media (max-width: 768px) {
+    .events-table,
+    .events-table tbody,
+    .events-table tr,
+    .events-table td {
+        display: block;
+        width: 100%;
+    }
+    .events-table tr {
+        margin-bottom: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
+    .events-table td {
+        padding: 0.5rem;
+        text-align: right;
+        position: relative;
+        padding-left: 50%;
+    }
+    .events-table td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0.5rem;
+        width: 45%;
+        font-weight: 600;
+        text-align: left;
+    }
+    .action-buttons {
+        justify-content: flex-end;
+    }
+}
+
+/* Бейджи ролей (уже были, но продублирую для порядка) */
+.role-badges {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+.role-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 12px;
+    background: #f0f0f0;
+    color: #333;
+}
+.role-badge.role-organizer { background: #e3f2fd; color: #0b5e7e; }
+.role-badge.role-coordinator { background: #e8f5e9; color: #2e6b2f; }
+.role-badge.role-speaker { background: #fff3e0; color: #b45f06; }
+.role-badge.role-participant { background: #ede7f6; color: #4527a0; }
+.role-badge.role-none { background: #f5f5f5; color: #999; }
