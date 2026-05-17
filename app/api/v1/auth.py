@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 @router.post("/register", response_model=TokenResponse)
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
     access, refresh = AuthService.register(db, data)
-    return TokenResponse(access_token=access, refresh_token=refresh)
+    return TokenResponse(access_token=access, refresh_token=refresh, user_roles=[])
 
 
 @router.post("/login", response_model=TokenResponse)

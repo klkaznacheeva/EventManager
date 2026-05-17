@@ -446,7 +446,8 @@ def remove_event_coordinator(
     }
 
 @router.get(
-    "/{event_id}/coordinators/{user_id}/tasks"
+    "/{event_id}/coordinators/{user_id}/tasks",
+    summary="Получение чек листов по пользователю"
 )
 def get_coordinator_tasks(
         event_id: UUID,
@@ -463,7 +464,8 @@ def get_coordinator_tasks(
     )
 
 @router.post(
-    "/{event_id}/coordinators/{user_id}/tasks"
+    "/{event_id}/coordinators/{user_id}/tasks",
+    summary="Создания чек-листов для координатора"
 )
 def create_coordinator_tasks(
         event_id: UUID,
@@ -481,6 +483,27 @@ def create_coordinator_tasks(
         tasks=data.get("tasks", []),
         current_user_id=current_user.id
     )
+
+@router.get(
+    "/tasks/my",
+    summary="АПИ для получения моих задач по мероприятиям",
+    response_model=ChecklistTaskListResponse
+)
+def get_my_tasks(
+        page: int = Query(1),
+        limit: int = Query(20),
+
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+
+    return ChecklistService.get_my_tasks(
+        db=db,
+        user_id=current_user.id,
+        page=page,
+        limit=limit
+    )
+
 
 @router.get("/coordinator/events")
 def get_coordinator_events(

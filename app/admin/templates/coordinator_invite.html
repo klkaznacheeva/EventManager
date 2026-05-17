@@ -7,13 +7,20 @@
         <div>
             <h1 class="page-title">Приглашение координатора</h1>
             <p class="action-text">
-                Нажмите кнопку ниже, чтобы стать координатором мероприятия.
+                Вас пригласили стать координатором мероприятия.
             </p>
         </div>
 
-        <button class="btn btn-primary" onclick="acceptInvite()">
-            Принять приглашение
-        </button>
+        <div id="accept-panel" style="display: none;">
+            <button class="btn btn-primary" onclick="acceptInvite()">
+                Принять приглашение
+            </button>
+        </div>
+
+        <div id="loading-message" style="text-align: center; padding: 20px;">
+            Проверка авторизации...
+        </div>
+        <div id="error-message" style="display: none; color: red; margin-top: 10px;"></div>
     </div>
 </section>
 
@@ -27,41 +34,112 @@
         return null;
     }
 
+    function showLoading() {
+        document.getElementById("loading-message").style.display = "block";
+        document.getElementById("error-message").style.display = "none";
+        document.getElementById("accept-panel").style.display = "none";
+    }
+
+    function showError(message) {
+        document.getElementById("loading-message").style.display = "none";
+        document.getElementById("error-message").style.display = "block";
+        document.getElementById("error-message").innerText = message;
+    }
+
+    function showAcceptPanel() {
+        document.getElementById("loading-message").style.display = "none";
+        document.getElementById("error-message").style.display = "none";
+        document.getElementById("accept-panel").style.display = "block";
+    }
+
+    async function checkAuth() {
+        showLoading();
+        const token = getCookie("access_token");
+        if (!token) {
+            // Используем относительный путь (без домена)
+            const currentPath = window.location.pathname + window.location.search;
+            sessionStorage.setItem("invite_redirect", currentPath);
+            window.location.href = "/admin/login?next=" + encodeURIComponent(currentPath);
+            return;
+        }
+
+        try {
+            const resp = await fetch("/api/v1/users/profile", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!resp.ok) {
+                const currentPath = window.location.pathname + window.location.search;
+                sessionStorage.setItem("invite_redirect", currentPath);
+                window.location.href = "/admin/login?next=" + encodeURIComponent(currentPath);
+                return;
+            }
+            showAcceptPanel();
+        } catch (err) {
+            console.error(err);
+            const currentPath = window.location.pathname + window.location.search;
+            sessionStorage.setItem("invite_redirect", currentPath);
+            window.location.href = "/admin/login?next=" + encodeURIComponent(currentPath);
+        }
+    }
+
     async function acceptInvite() {
         const token = getCookie("access_token");
-
         if (!token) {
-            localStorage.setItem("coordinator_invite_token", inviteToken);
-            window.location.href = "/admin/login";
+            showError("Сессия устарела. Пожалуйста, войдите заново.");
+            setTimeout(() => {
+                const currentPath = window.location.pathname + window.location.search;
+                sessionStorage.setItem("invite_redirect", currentPath);
+                window.location.href = "/admin/login?next=" + encodeURIComponent(currentPath);
+            }, 1500);
             return;
         }
 
-        const res = await fetch(`/api/v1/users/coordinator-invites/${inviteToken}/accept`, {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer " + token
+        showLoading();
+        try {
+            const resp = await fetch(`/api/v1/users/coordinator-invites/${inviteToken}/accept`, {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            });
+
+            if (!resp.ok) {
+                let message = "Ошибка принятия приглашения";
+                try {
+                    const data = await resp.json();
+                    message = data.detail || message;
+                } catch (err) {}
+                showError(message);
+                return;
             }
-        });
 
-        if (!res.ok) {
-            let message = "Ошибка принятия приглашения";
-
-            try {
-                const data = await res.json();
-                message = data.detail || message;
-            } catch (err) {
-                console.error(err);
-            }
-
-            alert(message);
-            return;
+            const data = await resp.json();
+            alert("Вы назначены координатором мероприятия");
+            window.location.href = `/admin/events/${data.event_id}`;
+        } catch (err) {
+            showError("Ошибка сети при принятии приглашения");
         }
-
-        const data = await res.json();
-
-        alert("Вы назначены координатором мероприятия");
-        window.location.href = `/admin/events/${data.event_id}`;
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const currentPath = window.location.pathname + window.location.search;
+        if (sessionStorage.getItem("invite_redirect") === currentPath) {
+            sessionStorage.removeItem("invite_redirect");
+        }
+        checkAuth();
+    });
 </script>
+<style>
+    .action-card .card-body {
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .page-title {
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+    }
+    .action-text {
+        color: #4a5568;
+        margin-bottom: 2rem;
+    }
+</style>
 
 {% endblock %}

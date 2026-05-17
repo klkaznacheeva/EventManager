@@ -62,12 +62,28 @@
 
         <div class="auth-footer">
             Уже есть аккаунт?
-            <a href="/admin/login">Войти</a>
+            {% set next_param = request.query_params.get('next', '') %}
+            <a href="/admin/login{{ '?next=' + next_param if next_param else '' }}">Войти</a>
         </div>
     </section>
 </div>
 
 <script>
+    function getNextUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let next = urlParams.get('next');
+        if (!next) return null;
+        // Если абсолютный URL – оставляем как есть
+        if (next.startsWith('http://') || next.startsWith('https://')) {
+            return next;
+        }
+        // Иначе делаем относительный путь с ведущим слешем
+        if (!next.startsWith('/')) {
+            next = '/' + next;
+        }
+        return next;
+    }
+
     function showError(message) {
         const error = document.getElementById("error");
         error.innerText = message;
@@ -82,7 +98,6 @@
 
     function setSubmitLoading(isLoading) {
         const submitBtn = document.getElementById("submit-btn");
-
         submitBtn.disabled = isLoading;
         submitBtn.innerText = isLoading ? "Регистрация..." : "Зарегистрироваться";
     }
@@ -114,14 +129,12 @@
 
             if (!res.ok) {
                 let message = "Ошибка регистрации";
-
                 try {
                     const data = await res.json();
                     message = data.detail || message;
                 } catch (err) {
                     console.error(err);
                 }
-
                 showError(message);
                 return;
             }
@@ -130,7 +143,12 @@
 
             document.cookie = `access_token=${data.access_token}; path=/`;
 
-            window.location.href = "/admin/dashboard";
+            const nextUrl = getNextUrl();
+            if (nextUrl) {
+                window.location.href = nextUrl;
+            } else {
+                window.location.href = "/admin/dashboard";
+            }
 
         } catch (err) {
             console.error(err);

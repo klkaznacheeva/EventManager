@@ -76,7 +76,7 @@ async function loadData() {
 
     const [eventsRes, tasksRes] = await Promise.all([
         api(`/api/v1/events/coordinator/events`),
-        api(`/api/v1/checklists/my`)
+        api(`/api/v1/events/tasks/my`)
     ]);
 
     if (!eventsRes.ok) {

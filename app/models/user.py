@@ -38,4 +38,3 @@ class User(Base):
 
     is_temporary = Column(Boolean, default=False)
     password_changed = Column(Boolean, default=False)
-    invited_by = Column(UUID(as_uuid=True), default=uuid.uuid4)
