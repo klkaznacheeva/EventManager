@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Квизы сессии</h1>
+        <p class="page-description">
+            Создание, редактирование и управление викторинами для выбранной сессии.
+        </p>
+    </div>
+    <div class="btn-row">
+        <a href="/admin/sessions/{{ session_id }}" class="btn btn-ghost">Назад к сессии</a>
+        <a href="/admin/quizzes/create?session_id={{ session_id }}" class="btn btn-primary">Создать квиз</a>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-body">
+        <div id="quizzes-list" class="sessions-list">
+            <div class="loading-state">Загрузка квизов...</div>
+        </div>
+    </div>
+</section>
+
+<script>
+    const sessionId = "{{ session_id }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    async function loadQuizzes() {
+        const token = getCookie("access_token");
+        const container = document.getElementById("quizzes-list");
+
+        try {
+            const res = await fetch(`/api/v1/quizzes/sessions/${sessionId}/quizzes`, {
+                headers: { "Authorization": "Bearer " + token }
+            });
+
+            if (!res.ok) {
+                container.innerHTML = `<div class="empty-state">Ошибка загрузки квизов</div>`;
+                return;
+            }
+
+            const data = await res.json();
+            if (!data.length) {
+                container.innerHTML = `<div class="empty-state">Квизы не созданы. Нажмите «Создать квиз».</div>`;
+                return;
+            }
+
+            container.innerHTML = "";
+            for (const quiz of data) {
+                const card = document.createElement("div");
+                card.className = "session-card";
+                card.innerHTML = `
+                    <div class="session-top">
+                        <div>
+                            <h3 class="session-title">${escapeHtml(quiz.title)}</h3>
+                            <div class="session-meta">
+                                Статус: ${quiz.is_active ? '<span class="status-badge status-reviewed">Активен</span>' : '<span class="status-badge status-pending">Неактивен</span>'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="session-actions">
+                        <a href="/admin/quizzes/${quiz.id}/edit" class="btn btn-secondary btn-sm">Редактировать</a>
+                        <a href="/admin/quizzes/${quiz.id}/statistics" class="btn btn-info btn-sm">Статистика</a>
+                        <button class="btn btn-sm ${quiz.is_active ? 'btn-warning' : 'btn-success'}" onclick="toggleActive('${quiz.id}', ${!quiz.is_active})">
+                            ${quiz.is_active ? "Деактивировать" : "Активировать"}
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteQuiz('${quiz.id}')">Удалить</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = `<div class="empty-state">Ошибка соединения</div>`;
+        }
+    }
+
+    async function toggleActive(quizId, newState) {
+        const token = getCookie("access_token");
+        try {
+            const res = await fetch(`/api/v1/quizzes/${quizId}/toggle-active`, {
+                method: "PATCH",
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.ok) {
+                loadQuizzes();
+            } else {
+                alert("Ошибка изменения статуса");
+            }
+        } catch (err) {
+            alert("Ошибка сети");
+        }
+    }
+
+    async function deleteQuiz(quizId) {
+        if (!confirm("Удалить этот квиз? Все вопросы и ответы будут удалены без возможности восстановления.")) return;
+        const token = getCookie("access_token");
+        try {
+            const res = await fetch(`/api/v1/quizzes/${quizId}`, {
+                method: "DELETE",
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.ok) {
+                loadQuizzes();
+            } else {
+                alert("Ошибка удаления");
+            }
+        } catch (err) {
+            alert("Ошибка сети");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadQuizzes);
+</script>
+
+<style>
+    .btn-success { background-color: #48bb78; color: white; }
+    .btn-warning { background-color: #ed8936; color: white; }
+    .btn-info { background-color: #4299e1; color: white; }
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .status-reviewed { background: #c6f6d5; color: #22543d; }
+    .status-pending { background: #fed7d7; color: #742a2a; }
+</style>
+
+{% endblock %}

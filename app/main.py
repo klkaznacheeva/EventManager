@@ -9,6 +9,7 @@ from app.api.v1.enum import router as enum_router
 from app.api.v1.session import router as session_router
 from app.api.v1.user import router as user_router
 from app.api.v1.feedback import router as feedback_router
+from app.api.v1.quizzes import router as quizzes_router
 from app.admin.router import router as admin_router
 from app.core.security import decode_token
 
@@ -21,6 +22,7 @@ app.include_router(admin_router)
 app.include_router(session_router)
 app.include_router(user_router)
 app.include_router(feedback_router)
+app.include_router(quizzes_router)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")

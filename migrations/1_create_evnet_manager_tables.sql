@@ -116,6 +116,7 @@ CREATE TABLE user_answers (
 );
 
 CREATE INDEX idx_user_answers_user ON user_answers(user_id);
+
 CREATE TABLE files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     filename VARCHAR(255) NOT NULL,

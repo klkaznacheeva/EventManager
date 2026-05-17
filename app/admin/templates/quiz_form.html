@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ title }}</h1>
+        <p class="page-description">Заполните вопросы и варианты ответов. У каждого вопроса должен быть ровно один правильный ответ.</p>
+    </div>
+    <div class="btn-row">
+        <a href="/admin/sessions/{{ session_id }}/quizzes" class="btn btn-ghost">Назад к квизам</a>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-body">
+        <form id="quiz-form">
+            <div class="form-group">
+                <label for="title">Название квиза</label>
+                <input type="text" id="title" class="form-input" required value="{{ quiz.title if quiz else '' }}">
+            </div>
+
+            <div class="form-group form-group-inline">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="is_active" {% if quiz and quiz.is_active %}checked{% endif %}>
+                    <span>Активен (участники смогут проходить)</span>
+                </label>
+            </div>
+
+            <h3 style="margin-top: 24px; margin-bottom: 16px;">Вопросы</h3>
+            <div id="questions-container" class="questions-container"></div>
+
+            <div class="btn-row" style="margin-top: 16px;">
+                <button type="button" class="btn btn-secondary" onclick="addQuestion()">+ Добавить вопрос</button>
+            </div>
+
+            <div class="form-actions" style="margin-top: 24px;">
+                <button type="submit" class="btn btn-primary">Сохранить квиз</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+    // Функция получения cookie (если не определена в base.html)
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    const sessionId = "{{ session_id }}";
+    const quizId = "{{ quiz.id if quiz else '' }}";
+    let questionsData = [];
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function addQuestion(question = null) {
+        const container = document.getElementById("questions-container");
+        const idx = container.children.length;
+        const qText = question ? question.question_text : "";
+        const qOrder = question ? question.order_index : idx;
+        const answers = question ? question.answers : [{text: "", is_correct: false}, {text: "", is_correct: false}];
+
+        const div = document.createElement("div");
+        div.className = "question-card";
+        div.dataset.index = idx;
+        div.innerHTML = `
+            <div class="question-header">
+                <strong>Вопрос ${idx+1}</strong>
+                <button type="button" class="btn-remove" onclick="this.closest('.question-card').remove()">Удалить вопрос</button>
+            </div>
+            <div class="form-group">
+                <label>Текст вопроса</label>
+                <textarea class="form-input question-text" rows="2" placeholder="Введите вопрос">${escapeHtml(qText)}</textarea>
+            </div>
+            <div class="form-group">
+                <label>Порядковый номер</label>
+                <input type="number" class="form-input question-order" value="${qOrder}" style="width: 100px;">
+            </div>
+            <div class="answers-container">
+                <label>Варианты ответов (один должен быть правильным)</label>
+                <div class="answers-list"></div>
+                <button type="button" class="btn-secondary btn-sm" onclick="addAnswer(this)">+ Добавить вариант</button>
+            </div>
+        `;
+        container.appendChild(div);
+        const answersList = div.querySelector(".answers-list");
+        answers.forEach((ans) => {
+            addAnswerRow(answersList, ans.text, ans.is_correct);
+        });
+        // Обновляем имена radio-кнопок для всех вопросов (чтобы не конфликтовали)
+        updateRadioNames();
+    }
+
+    function addAnswerRow(container, text = "", isCorrect = false) {
+        const row = document.createElement("div");
+        row.className = "answer-row";
+        // dataset.index родительского question-card
+        const questionCard = container.closest('.question-card');
+        const qIdx = questionCard.dataset.index;
+        row.innerHTML = `
+            <input type="text" class="form-input answer-text" placeholder="Текст варианта" value="${escapeHtml(text)}">
+            <label class="answer-correct">
+                <input type="radio" name="correct-${qIdx}" ${isCorrect ? 'checked' : ''}> Правильный
+            </label>
+            <button type="button" class="btn-remove-small" onclick="this.closest('.answer-row').remove()">✖</button>
+        `;
+        container.appendChild(row);
+    }
+
+    function updateRadioNames() {
+        // Обновляем атрибуты name у всех radio в соответствии с текущим dataset.index
+        document.querySelectorAll('.question-card').forEach((card, idx) => {
+            card.dataset.index = idx;
+            const radios = card.querySelectorAll('.answer-row input[type="radio"]');
+            radios.forEach(radio => {
+                radio.name = `correct-${idx}`;
+            });
+        });
+    }
+
+    function addAnswer(btn) {
+        const answersList = btn.closest(".answers-container").querySelector(".answers-list");
+        addAnswerRow(answersList);
+        updateRadioNames();
+    }
+
+    function collectData() {
+        const title = document.getElementById("title").value.trim();
+        if (!title) throw new Error("Введите название квиза");
+        const isActive = document.getElementById("is_active").checked;
+        const questions = [];
+        const questionDivs = document.querySelectorAll(".question-card");
+        if (questionDivs.length === 0) throw new Error("Добавьте хотя бы один вопрос");
+
+        for (let i = 0; i < questionDivs.length; i++) {
+            const div = questionDivs[i];
+            const questionText = div.querySelector(".question-text").value.trim();
+            if (!questionText) throw new Error(`Введите текст вопроса ${i+1}`);
+            const order = parseInt(div.querySelector(".question-order").value) || i;
+            const answerRows = div.querySelectorAll(".answer-row");
+            if (answerRows.length < 2) throw new Error(`В вопросе ${i+1} должно быть минимум 2 варианта ответа`);
+            const answers = [];
+            let correctFound = false;
+            for (let j = 0; j < answerRows.length; j++) {
+                const row = answerRows[j];
+                const text = row.querySelector(".answer-text").value.trim();
+                if (!text) throw new Error(`В вопросе ${i+1} заполните все варианты ответов`);
+                const isCorrect = row.querySelector("input[type='radio']").checked;
+                if (isCorrect) correctFound = true;
+                answers.push({text, is_correct: isCorrect});
+            }
+            if (!correctFound) throw new Error(`В вопросе ${i+1} выберите один правильный ответ`);
+            questions.push({
+                question_text: questionText,
+                question_type: "single_choice",
+                order_index: order,
+                answers: answers
+            });
+        }
+        return {title, is_active: isActive, questions, session_id: sessionId};
+    }
+
+    async function saveQuiz() {
+        const token = getCookie("access_token");
+        let data;
+        try {
+            data = collectData();
+        } catch (err) {
+            alert(err.message);
+            return;
+        }
+        const method = quizId ? "PUT" : "POST";
+        const url = quizId ? `/api/v1/quizzes/${quizId}` : `/api/v1/quizzes/sessions/${sessionId}/quiz`;
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                alert("Ошибка: " + (errData.detail || "Не удалось сохранить"));
+                return;
+            }
+            alert("Квиз сохранён");
+            window.location.href = `/admin/sessions/${sessionId}/quizzes`;
+        } catch (err) {
+            console.error(err);
+            alert("Ошибка сети при сохранении");
+        }
+    }
+
+    function loadExistingQuiz() {
+        if (!quizId) return;
+        fetch(`/api/v1/quizzes/${quizId}`, {
+            headers: { "Authorization": "Bearer " + getCookie("access_token") }
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("Не удалось загрузить квиз");
+            return res.json();
+        })
+        .then(quiz => {
+            document.getElementById("title").value = quiz.title;
+            document.getElementById("is_active").checked = quiz.is_active;
+            // Очищаем контейнер и загружаем вопросы
+            document.getElementById("questions-container").innerHTML = "";
+            if (quiz.questions && quiz.questions.length) {
+                quiz.questions.sort((a,b)=>a.order_index - b.order_index).forEach(q => addQuestion(q));
+            } else {
+                addQuestion(); // добавить пустой вопрос, если нет
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    document.getElementById("quiz-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        saveQuiz();
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        if (quizId) {
+            loadExistingQuiz();
+        } else {
+            addQuestion(); // начальный пустой вопрос для нового квиза
+        }
+    });
+</script>
+
+<style>
+    .question-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+        background: #f9fafb;
+    }
+    .question-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .btn-remove {
+        background: none;
+        border: none;
+        color: #e53e3e;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .answers-container {
+        margin-top: 12px;
+    }
+    .answer-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .answer-text {
+        flex: 1;
+    }
+    .answer-correct {
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-remove-small {
+        background: none;
+        border: none;
+        color: #e53e3e;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    .btn-secondary {
+        background-color: #e2e8f0;
+        color: #1a202c;
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+    }
+    .btn-secondary:hover {
+        background-color: #cbd5e0;
+    }
+    .btn-sm {
+        font-size: 13px;
+    }
+    .form-group-inline {
+        margin-bottom: 16px;
+    }
+    .checkbox-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-weight: normal;
+    }
+    .checkbox-label input {
+        width: auto;
+        margin: 0;
+    }
+    .form-actions {
+        margin-top: 24px;
+    }
+</style>
+
+{% endblock %}

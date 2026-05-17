@@ -1,12 +1,18 @@
 # app/admin/router.py
 from uuid import UUID
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.responses import PlainTextResponse  # Добавим для отладки
+from sqlalchemy.orm import Session
 
+from app.core.enum import RoleList
 from app.core.jwt_dependency import get_required_user
 from app.core.templates import render_template
+from app.db.database import get_db
+from app.models import User, Event, EventParticipant
+from app.models.quiz import Survey
+from app.models.session import Session as EventSession
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -192,3 +198,90 @@ def coordinator_events_page(request: Request):
             "request": request
         }
     )
+
+
+@router.get("/sessions/{session_id}/quizzes", response_class=HTMLResponse)
+def session_quizzes_page(
+        request: Request,
+        session_id: UUID,
+        current_user: User = Depends(get_required_user),
+        db: Session = Depends(get_db)
+):
+    # Проверяем существование сессии
+    session = db.query(EventSession).filter(EventSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    event = db.query(Event).filter(Event.id == session.event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Права: организатор мероприятия или координатор
+    if event.organizer_id != current_user.id:
+        coord = db.query(EventParticipant).filter(
+            EventParticipant.event_id == event.id,
+            EventParticipant.user_id == current_user.id,
+            EventParticipant.role_id == RoleList.coordinator
+        ).first()
+        if not coord:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    return render_template("session_quizzes.html", {"request": request, "session_id": session_id})
+
+@router.get("/sessions/{session_id}/quiz", response_class=HTMLResponse)
+def public_quiz_page(
+        request: Request,
+        session_id: UUID,
+        current_user: User = Depends(get_required_user),
+        db: Session = Depends(get_db)
+):
+    # Проверяем существование сессии
+    session = db.query(EventSession).filter(EventSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return render_template("public_quiz.html", {"request": request, "session_id": session_id})
+
+@router.get("/quizzes/create", response_class=HTMLResponse)
+def quiz_create_page(
+    request: Request,
+    session_id: UUID,
+    current_user: User = Depends(get_required_user),
+    db: Session = Depends(get_db)
+):
+    # Проверка прав (аналогично session_quizzes_page)
+    session = db.query(EventSession).filter(EventSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    event = db.query(Event).filter(Event.id == session.event_id).first()
+    if event.organizer_id != current_user.id:
+        coord = db.query(EventParticipant).filter(
+            EventParticipant.event_id == event.id,
+            EventParticipant.user_id == current_user.id,
+            EventParticipant.role_id == RoleList.coordinator
+        ).first()
+        if not coord:
+            raise HTTPException(status_code=403, detail="Access denied")
+    return render_template("quiz_form.html", {"request": request, "session_id": session_id, "quiz": None, "title": "Создание квиза"})
+
+@router.get("/quizzes/{quiz_id}/edit", response_class=HTMLResponse)
+def quiz_edit_page(
+    request: Request,
+    quiz_id: UUID,
+    current_user: User = Depends(get_required_user),
+    db: Session = Depends(get_db)
+):
+    quiz = db.query(Survey).filter(Survey.id == quiz_id, Survey.type == "quiz").first()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    session = db.query(EventSession).filter(EventSession.id == quiz.session_id).first()
+    event = db.query(Event).filter(Event.id == session.event_id).first()
+    if event.organizer_id != current_user.id:
+        coord = db.query(EventParticipant).filter(
+            EventParticipant.event_id == event.id,
+            EventParticipant.user_id == current_user.id,
+            EventParticipant.role_id == RoleList.coordinator
+        ).first()
+        if not coord:
+            raise HTTPException(status_code=403, detail="Access denied")
+    # Передаём quiz_id в шаблон, чтобы JS загрузил данные через API
+    return render_template("quiz_form.html", {"request": request, "session_id": quiz.session_id, "quiz": {"id": quiz_id}, "title": "Редактирование квиза"})

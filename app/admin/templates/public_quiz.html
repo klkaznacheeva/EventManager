@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Квиз</h1>
+        <p class="page-description">Ответьте на вопросы викторины</p>
+    </div>
+    <div class="btn-row">
+        <a href="javascript:history.back()" class="btn btn-ghost">Назад</a>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-body">
+        <div id="quiz-container" class="quiz-container">
+            <div class="loading-state">Загрузка квиза...</div>
+        </div>
+        <div id="result-container" class="result-container" style="display: none;"></div>
+    </div>
+</section>
+
+<script>
+    const sessionId = "{{ session_id }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    async function loadActiveQuiz() {
+        const token = getCookie("access_token");
+        const container = document.getElementById("quiz-container");
+        try {
+            const res = await fetch(`/api/v1/quizzes/sessions/${sessionId}/active-quiz`, {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 404) {
+                container.innerHTML = "<div class='empty-state'>Активный квиз не найден</div>";
+                return;
+            }
+            if (!res.ok) {
+                const err = await res.json();
+                container.innerHTML = `<div class='empty-state'>Ошибка: ${err.detail || "Неизвестная ошибка"}</div>`;
+                return;
+            }
+            const quiz = await res.json();
+            renderForm(quiz);
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = "<div class='empty-state'>Ошибка загрузки квиза</div>";
+        }
+    }
+
+    function renderForm(quiz) {
+        const container = document.getElementById("quiz-container");
+        let html = `<h2 class="quiz-title">${escapeHtml(quiz.title)}</h2>`;
+        html += `<form id="quiz-form" class="quiz-form">`;
+        for (let q of quiz.questions) {
+            html += `<div class="quiz-question">
+                        <p><strong>${escapeHtml(q.question_text)}</strong></p>
+                        <div class="quiz-options">`;
+            for (let a of q.answers) {
+                html += `<label class="quiz-option">
+                            <input type="radio" name="q_${q.id}" value="${a.id}" required>
+                            <span>${escapeHtml(a.text)}</span>
+                         </label>`;
+            }
+            html += `</div></div>`;
+        }
+        html += `<div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Отправить ответы</button>
+                 </div>`;
+        html += `</form>`;
+        container.innerHTML = html;
+
+        document.getElementById("quiz-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const answers = [];
+            for (let q of quiz.questions) {
+                const selected = document.querySelector(`input[name="q_${q.id}"]:checked`);
+                if (!selected) {
+                    alert("Ответьте на все вопросы");
+                    return;
+                }
+                answers.push({ question_id: q.id, answer_id: selected.value });
+            }
+            await submitQuiz(quiz.id, answers);
+        });
+    }
+
+    async function submitQuiz(quizId, answers) {
+        const token = getCookie("access_token");
+        const container = document.getElementById("quiz-container");
+        const resultDiv = document.getElementById("result-container");
+        try {
+            const res = await fetch(`/api/v1/quizzes/${quizId}/submit`, {
+                method: "POST",
+                headers: { 
+                    "Authorization": "Bearer " + token, 
+                    "Content-Type": "application/json" 
+                },
+                body: JSON.stringify({ answers })
+            });
+            const result = await res.json();
+            if (!res.ok) {
+                alert(result.detail || "Ошибка отправки");
+                return;
+            }
+            // Скрываем форму, показываем результат
+            container.style.display = "none";
+            resultDiv.style.display = "block";
+            const percent = result.percentage.toFixed(1);
+            let detailsHtml = `<ul class="result-details">`;
+            for (let d of result.details) {
+                const status = d.is_correct ? "✔️" : "❌";
+                detailsHtml += `<li><strong>${escapeHtml(d.question_text)}</strong> — ${status} (Ваш ответ: ${escapeHtml(d.user_answer_text)}, правильный: ${escapeHtml(d.correct_answer_text)})</li>`;
+            }
+            detailsHtml += `</ul>`;
+            resultDiv.innerHTML = `
+                <div class="result-card">
+                    <h3>Результат: ${result.correct_count} из ${result.total_questions} (${percent}%)</h3>
+                    ${detailsHtml}
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" onclick="location.reload()">Пройти другой квиз</button>
+                        <a href="/admin/dashboard" class="btn btn-primary">На главную</a>
+                    </div>
+                </div>
+            `;
+        } catch (err) {
+            console.error(err);
+            alert("Ошибка сети при отправке");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadActiveQuiz);
+</script>
+
+<style>
+    .quiz-title {
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+    }
+    .quiz-question {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #edf2f7;
+    }
+    .quiz-options {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .quiz-option {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+    .quiz-option input {
+        width: auto;
+        margin: 0;
+    }
+    .result-card {
+        background: #f9fafb;
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    .result-details {
+        list-style: none;
+        padding: 0;
+        margin-top: 1rem;
+    }
+    .result-details li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .form-actions {
+        margin-top: 1.5rem;
+    }
+</style>
+
+{% endblock %}

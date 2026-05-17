@@ -620,6 +620,20 @@
                     actionsDiv.appendChild(editBtn);
                     actionsDiv.appendChild(delBtn);
 
+                    // Кнопка управления квизами для организатора
+                    const quizManageBtn = document.createElement("button");
+                    quizManageBtn.className = "btn btn-secondary btn-sm";
+                    quizManageBtn.innerText = "Управление квизами";
+                    quizManageBtn.onclick = () => {
+                        window.location.href = `/admin/sessions/${session.id}/quizzes`;
+                    };
+                    actionsDiv.appendChild(quizManageBtn);
+
+                    if (session.status === "draft" || session.status === "published") {
+                        actionsDiv.appendChild(publishBtn);
+                    }
+
+
                    if (session.status === "draft" || session.status === "published") {
                         actionsDiv.appendChild(publishBtn);
                    }
@@ -639,6 +653,17 @@
                 commentsBtn.onclick = () => goToSessionComments(event.id, session.id);
 
                 commentActionsDiv.appendChild(commentsBtn);
+
+                // Кнопка для прохождения квиза (только для участников)
+                if (getUserMode() === "participant") {
+                    const takeQuizBtn = document.createElement("button");
+                    takeQuizBtn.className = "btn btn-primary btn-sm";
+                    takeQuizBtn.innerText = "Пройти квиз";
+                    takeQuizBtn.onclick = () => {
+                        window.location.href = `/admin/sessions/${session.id}/quiz`;
+                    };
+                    commentActionsDiv.appendChild(takeQuizBtn);
+                }
                 sessionDiv.appendChild(commentActionsDiv);
 
                 sessionsContainer.appendChild(sessionDiv);
