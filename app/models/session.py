@@ -37,3 +37,5 @@ class Session(Base):
     event = relationship("Event", back_populates="sessions")
 
     participants = relationship("SessionParticipant", back_populates="session")
+
+    current_user_joined: bool = False

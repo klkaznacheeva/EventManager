@@ -68,6 +68,7 @@ class SessionResponse(BaseModel):
     status_label: Optional[str] = None
     files: Optional[List[SessionFileResponse]] = None
     speakers: Optional[List[SessionSpeakerResponse]] = None
+    current_user_joined: bool = False  # новое поле
 
     class Config:
         from_attributes = True

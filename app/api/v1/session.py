@@ -11,6 +11,7 @@ from app.core.enum import RoleList, EntityType, AttachmentType, SessionStatus
 from app.db.database import get_db
 from app.core.jwt_dependency import get_required_user
 from app.models import User, Role, EventParticipant
+from app.models.session_participant import SessionParticipant
 from app.schemas.session import (
     SessionCreateRequest,
     SessionResponse,
@@ -302,3 +303,62 @@ def remove_speaker(
         user_id=user_id,
         current_user_id=current_user.id
     )
+
+
+@router.post("/{session_id}/join")
+def join_session(
+        session_id: UUID,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_required_user)
+):
+    # Проверяем существование сессии
+    session = SessionService.get_by_id(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Сессия должна быть опубликована
+    if session.status != SessionStatus.PUBLISHED.value:
+        raise HTTPException(status_code=400, detail="Сессия не опубликована")
+
+    # Проверяем, участвует ли пользователь в мероприятии (event_participants)
+    event_participant = db.query(EventParticipant).filter(
+        EventParticipant.event_id == session.event_id,
+        EventParticipant.user_id == current_user.id
+    ).first()
+    if not event_participant:
+        raise HTTPException(status_code=403, detail="Сначала присоединитесь к мероприятию")
+
+    # Проверяем, не присоединён ли уже
+    existing = db.query(SessionParticipant).filter(
+        SessionParticipant.session_id == session_id,
+        SessionParticipant.user_id == current_user.id
+    ).first()
+    if existing:
+        return {"detail": "Already joined"}
+
+    # Создаём запись
+    participant = SessionParticipant(
+        session_id=session_id,
+        user_id=current_user.id,
+        role_id=None  # можно не указывать, роль не нужна
+    )
+    db.add(participant)
+    db.commit()
+    return {"detail": "Joined session"}
+
+
+@router.post("/{session_id}/leave")
+def leave_session(
+        session_id: UUID,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_required_user)
+):
+    participant = db.query(SessionParticipant).filter(
+        SessionParticipant.session_id == session_id,
+        SessionParticipant.user_id == current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(status_code=404, detail="Not joined")
+    db.delete(participant)
+    db.commit()
+    return {"detail": "Left session"}

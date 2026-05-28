@@ -384,6 +384,33 @@
             renderEventBanner(event);
             renderSessions(event);
 
+            if (getUserMode() === "participant" && event.status === "published") {
+                const infoCard = document.querySelector(".event-info-card .card-body");
+                if (infoCard) {
+                    let btn = document.getElementById("join-event-btn");
+                    if (!btn) {
+                        btn = document.createElement("button");
+                        btn.id = "join-event-btn";
+                        btn.className = "btn btn-primary";
+                        btn.style.marginTop = "16px";
+                        infoCard.appendChild(btn);
+                    }
+                    btn.innerText = event.is_participant ? "Отписаться от мероприятия" : "Присоединиться к мероприятию";
+                    btn.onclick = async () => {
+                        const token = getCookie("access_token");
+                        const url = `/api/v1/events/${event.id}/${event.is_participant ? "leave" : "join"}`;
+                        const res = await fetch(url, { method: "POST", headers: { "Authorization": "Bearer " + token } });
+                        if (res.ok) {
+                            alert(event.is_participant ? "Вы отписались от мероприятия" : "Вы присоединились к мероприятию");
+                            loadEvent(event.id);
+                        } else {
+                            const err = await res.json();
+                            alert(err.detail || "Ошибка");
+                        }
+                    };
+                }
+            }
+
             const mode = getUserMode();
             const isOrganizerMode = userRole !== "admin" && mode === "organizer";
 
@@ -417,6 +444,54 @@
         } catch (err) {
             console.error(err);
             alert("Ошибка загрузки");
+        }
+    }
+
+    async function joinEvent(eventId) {
+        const token = getCookie("access_token");
+        const res = await fetch(`/api/v1/events/${eventId}/join`, { method: "POST", headers: { "Authorization": "Bearer " + token } });
+        if (res.ok) {
+            alert("Вы присоединились к мероприятию");
+            location.reload();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Ошибка");
+        }
+    }
+
+    async function leaveEvent(eventId) {
+        const token = getCookie("access_token");
+        const res = await fetch(`/api/v1/events/${eventId}/leave`, { method: "POST", headers: { "Authorization": "Bearer " + token } });
+        if (res.ok) {
+            alert("Вы отписались от мероприятия");
+            location.reload();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Ошибка");
+        }
+    }
+
+    async function joinSession(sessionId) {
+        const token = getCookie("access_token");
+        const res = await fetch(`/api/v1/sessions/${sessionId}/join`, { method: "POST", headers: { "Authorization": "Bearer " + token } });
+        if (res.ok) {
+            alert("Вы присоединились к сессии");
+            location.reload();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Ошибка");
+        }
+    }
+
+    async function leaveSession(sessionId) {
+        const token = getCookie("access_token");
+        const res = await fetch(`/api/v1/sessions/${sessionId}/leave`, { method: "POST", headers: { "Authorization": "Bearer " + token } });
+        if (res.ok) {
+            alert("Вы отписались от сессии");
+            location.reload();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Ошибка");
         }
     }
 
@@ -667,6 +742,27 @@
                 sessionDiv.appendChild(commentActionsDiv);
 
                 sessionsContainer.appendChild(sessionDiv);
+
+                if (getUserMode() === "participant" && event.status === "published") {
+                    const joinSessionBtn = document.createElement("button");
+                    joinSessionBtn.className = "btn btn-secondary btn-sm";
+                    // Используем поле current_user_joined, которое приходит из API (добавлено на 3 шаге)
+                    const isJoined = session.current_user_joined === true;
+                    joinSessionBtn.innerText = isJoined ? "Отписаться от сессии" : "Присоединиться к сессии";
+                    joinSessionBtn.onclick = async () => {
+                        const token = getCookie("access_token");
+                        const url = `/api/v1/sessions/${session.id}/${isJoined ? "leave" : "join"}`;
+                        const res = await fetch(url, { method: "POST", headers: { "Authorization": "Bearer " + token } });
+                        if (res.ok) {
+                            alert(isJoined ? "Вы отписались от сессии" : "Вы присоединились к сессии");
+                            loadEvent(event.id); // перезагружаем страницу, чтобы обновить статус
+                        } else {
+                            const err = await res.json();
+                            alert(err.detail || "Ошибка");
+                        }
+                    };
+                    commentActionsDiv.appendChild(joinSessionBtn);
+                }
         });
     }
 

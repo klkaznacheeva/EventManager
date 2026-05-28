@@ -76,9 +76,9 @@ class EventService:
 
     @staticmethod
     def get_event_by_id(
-        db: Session,
-        event_id: UUID,
-        user_id: Optional[UUID] = None
+            db: Session,
+            event_id: UUID,
+            user_id: Optional[UUID] = None
     ) -> Event:
         """Получение мероприятия по ID с дополнительной информацией"""
 
@@ -87,11 +87,9 @@ class EventService:
             .options(
                 joinedload(Event.category),
                 joinedload(Event.organizer),
-
                 joinedload(Event.sessions)
                 .joinedload(EventSession.participants)
                 .joinedload(SessionParticipant.user),
-
                 joinedload(Event.sessions)
                 .joinedload(EventSession.participants)
                 .joinedload(SessionParticipant.role),
@@ -125,6 +123,7 @@ class EventService:
             event.status
         )
 
+        # Добавляем статусные лейблы и флаг присоединения для сессий
         for session in event.sessions:
             session.status_label = SessionStatusMap.SESSION_STATUS_LABELS.get(
                 session.status,
@@ -139,6 +138,15 @@ class EventService:
                 for p in session.participants
                 if p.role and p.role.name == RoleList.speaker.value
             ]
+
+            # Вычисляем, присоединился ли текущий пользователь к этой сессии
+            session.current_user_joined = False
+            if user_id:
+                joined = db.query(SessionParticipant).filter(
+                    SessionParticipant.session_id == session.id,
+                    SessionParticipant.user_id == user_id
+                ).first() is not None
+                session.current_user_joined = joined
 
         return event
 
