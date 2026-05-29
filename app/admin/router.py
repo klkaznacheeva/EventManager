@@ -13,6 +13,7 @@ from app.db.database import get_db
 from app.models import User, Event, EventParticipant
 from app.models.quiz import Survey
 from app.models.session import Session as EventSession
+from app.services.chat_service import ChatService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -285,3 +286,56 @@ def quiz_edit_page(
             raise HTTPException(status_code=403, detail="Access denied")
     # Передаём quiz_id в шаблон, чтобы JS загрузил данные через API
     return render_template("quiz_form.html", {"request": request, "session_id": quiz.session_id, "quiz": {"id": quiz_id}, "title": "Редактирование квиза"})
+
+@router.get("/test-chat", response_class=HTMLResponse)
+def test_chat_page(request: Request):
+    return render_template("test_chat.html", {"request": request})
+
+
+@router.get("/events/{event_id}/coordinators-chat", response_class=HTMLResponse)
+def event_coordinators_chat_page(
+    request: Request,
+    event_id: UUID,
+    current_user: User = Depends(get_required_user),
+    db: Session = Depends(get_db)
+):
+    # Проверка прав: только организатор или координатор мероприятия
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(404, "Event not found")
+    # TODO: добавить проверку прав
+    return render_template("event_coordinators_chat.html", {"request": request, "event_id": event_id})
+
+@router.get("/sessions/{session_id}/speakers-chat", response_class=HTMLResponse)
+def session_speakers_chat_page(
+    request: Request,
+    session_id: UUID,
+    current_user: User = Depends(get_required_user),
+    db: Session = Depends(get_db)
+):
+    session = db.query(EventSession).filter(EventSession.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session not found")
+    # TODO: проверить, что пользователь организатор или спикер сессии
+    return render_template("session_speakers_chat.html", {
+        "request": request,
+        "session_id": session_id,
+        "event_id": session.event_id
+    })
+
+@router.get("/sessions/{session_id}/general-chat", response_class=HTMLResponse)
+def session_general_chat_page(
+    request: Request,
+    session_id: UUID,
+    current_user: User = Depends(get_required_user),
+    db: Session = Depends(get_db)
+):
+    session = db.query(EventSession).filter(EventSession.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session not found")
+    # TODO: проверить, что пользователь участник сессии
+    return render_template("session_general_chat.html", {
+        "request": request,
+        "session_id": session_id,
+        "event_id": session.event_id
+    })

@@ -12,3 +12,4 @@ fastapi-mail
 pytest
 pytest-mock
 pytest-cov
+websockets

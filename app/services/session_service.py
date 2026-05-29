@@ -17,6 +17,7 @@ from app.models.role import Role
 from app.core.enum import RoleList, SessionStatusMap, EntityType, AttachmentType
 from app.models.session_participant import SessionParticipant
 from app.schemas.session import SessionUpdateRequest
+from app.services.chat_service import ChatService
 from app.services.notification_service import NotificationService
 
 
@@ -53,6 +54,8 @@ class SessionService:
         db.add(session)
         db.commit()
         db.refresh(session)
+
+        ChatService.ensure_organizer_in_session(db, session.id, user_id)
 
         return session
 
@@ -241,7 +244,6 @@ class SessionService:
                 password_hash=hash_password(temporary_password),
                 is_temporary=True,
                 password_changed=False,
-                invited_by=current_user_id
             )
 
             db.add(user)
@@ -291,6 +293,8 @@ class SessionService:
         db.add(session_participant)
 
         db.commit()
+
+        ChatService.add_speaker_to_session(db, session_id, user.id)
 
         if user.email:
             login_url = "http://localhost:8000/admin/login"

@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.enum import RoleList
 from app.core.helper import get_role_id_by_name
 from app.models.event import Event
+from app.models.session import Session as EventSession
 from app.models.event_participant import EventParticipant
 from app.models.role import Role
 from app.models.user import User
+from app.services.chat_service import ChatService
 
 
 class EventCoordinatorService:
@@ -86,6 +88,10 @@ class EventCoordinatorService:
 
         db.commit()
         db.refresh(participant)
+
+        sessions = db.query(EventSession).filter(EventSession.event_id == event_id).all()
+        for session in sessions:
+            ChatService.add_coordinator_to_session(db, session.id, user_id)
 
         return participant
 

@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from jose import JWTError
 from starlette.responses import RedirectResponse, JSONResponse
 from starlette.staticfiles import StaticFiles
+from starlette.websockets import WebSocket
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.event import router as event_router
@@ -11,6 +12,7 @@ from app.api.v1.user import router as user_router
 from app.api.v1.feedback import router as feedback_router
 from app.api.v1.quizzes import router as quizzes_router
 from app.admin.router import router as admin_router
+from app.api.v1.ws import websocket_endpoint
 from app.core.security import decode_token
 
 app = FastAPI()
@@ -23,6 +25,8 @@ app.include_router(session_router)
 app.include_router(user_router)
 app.include_router(feedback_router)
 app.include_router(quizzes_router)
+
+app.add_api_websocket_route("/api/v1/ws/chat/{room_type}/{room_id}", websocket_endpoint)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")

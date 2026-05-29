@@ -79,3 +79,16 @@ def get_optional_token(authorization: Optional[str] = None):
     if authorization and authorization.startswith("Bearer "):
         return authorization.split(" ")[1]
     return None
+
+async def get_current_user_ws(token: str, db: Session) -> User | None:
+    from jose import JWTError, jwt
+    from app.core.config import settings
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+        user = db.query(User).filter(User.id == user_id).first()
+        return user
+    except JWTError:
+        return None

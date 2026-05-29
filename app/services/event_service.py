@@ -232,7 +232,7 @@ class EventService:
             user_mode: str = "organizer"
     ) -> EventListResponse:
         """Получение списка мероприятий с учетом режима пользователя"""
-
+        print("GET_EVENTS_LIST")
         query = db.query(Event).options(
             joinedload(Event.category),
             joinedload(Event.organizer)
@@ -252,12 +252,18 @@ class EventService:
             pass
 
         elif user_mode == "organizer":
-            # Организатор видит только свои мероприятия
             if not user_id:
                 query = query.filter(False)
             else:
+                coordinator_event_ids = db.query(EventParticipant.event_id).filter(
+                    EventParticipant.user_id == user_id,
+                    EventParticipant.role_id == get_role_id_by_name(db, RoleList.coordinator)
+                ).subquery()
                 query = query.filter(
-                    Event.organizer_id == user_id
+                    or_(
+                        Event.organizer_id == user_id,
+                        Event.id.in_(coordinator_event_ids)
+                    )
                 )
 
         elif user_mode == "participant":

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Чат спикеров сессии</h1>
+        <p class="page-description">Общение организатора со спикерами</p>
+    </div>
+    <div class="btn-row">
+        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">Назад к мероприятию</a>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-body">
+        <div id="chat-log" class="chat-log"></div>
+        <div class="input-group">
+            <input type="text" id="messageInput" class="form-input" placeholder="Введите сообщение" disabled>
+            <button id="sendBtn" class="btn btn-primary" disabled>Отправить</button>
+        </div>
+    </div>
+</section>
+
+<script>
+    let ws = null;
+    const sessionId = "{{ session_id }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function addMessage(userName, message, time) {
+        const log = document.getElementById('chat-log');
+        const div = document.createElement('div');
+        div.className = 'message';
+        const date = time ? new Date(time).toLocaleTimeString() : new Date().toLocaleTimeString();
+        div.innerHTML = `<span class="user">${escapeHtml(userName)}</span> <span class="time">${date}</span><br>${escapeHtml(message)}`;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+        const log = document.getElementById('chat-log');
+        const div = document.createElement('div');
+        div.className = 'system-message';
+        div.innerText = text;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function connect() {
+        const token = getCookie('access_token');
+        if (!token) {
+            addSystemMessage('❌ Не авторизован');
+            return;
+        }
+        const wsUrl = `ws://localhost:8000/api/v1/ws/chat/session_speakers/${sessionId}?token=${token}`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            addSystemMessage('✅ Подключено к чату');
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'history') {
+                addMessage(data.user_name, data.message, data.created_at);
+            } else if (data.type === 'message') {
+                addMessage(data.user_name, data.message, data.created_at);
+            } else if (data.type === 'connected') {
+                addSystemMessage(data.message);
+            }
+        };
+
+        ws.onclose = (event) => {
+            addSystemMessage(`🔌 Отключено (код ${event.code})`);
+            document.getElementById('messageInput').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            ws = null;
+        };
+
+        ws.onerror = (error) => {
+            console.error(error);
+            addSystemMessage('❌ Ошибка соединения');
+        };
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text) return;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ message: text }));
+            input.value = '';
+        } else {
+            alert('Не подключено к чату');
+        }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', sendMessage);
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    connect();
+</script>
+
+<style>
+    .chat-log {
+        border: 1px solid #e2e8f0;
+        height: 400px;
+        overflow-y: auto;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 12px;
+        margin-bottom: 16px;
+    }
+    .message {
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #edf2f7;
+    }
+    .user {
+        font-weight: bold;
+        color: #2b6cb0;
+    }
+    .time {
+        font-size: 0.75rem;
+        color: #718096;
+        margin-left: 10px;
+    }
+    .system-message {
+        color: #718096;
+        font-style: italic;
+        margin-bottom: 8px;
+    }
+    .input-group {
+        display: flex;
+        gap: 10px;
+    }
+    .form-input {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+    }
+</style>
+{% endblock %}
