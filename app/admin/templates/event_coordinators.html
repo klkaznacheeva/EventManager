@@ -222,7 +222,7 @@
         const token = getCookie("access_token");
         const container = document.getElementById("coordinator-tasks-list");
 
-        const res = await fetch(`/api/v1/events/${eventId}/coordinators/${userId}/`, {
+        const res = await fetch(`/api/v1/events/${eventId}/coordinators/${userId}/tasks`, {
             headers: { "Authorization": "Bearer " + token }
         });
 

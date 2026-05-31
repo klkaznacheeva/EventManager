@@ -14,6 +14,7 @@ from app.api.v1.quizzes import router as quizzes_router
 from app.admin.router import router as admin_router
 from app.api.v1.ws import websocket_endpoint
 from app.core.security import decode_token
+from app.api.v1.checklists import  router as checklist_router
 
 app = FastAPI()
 
@@ -25,6 +26,7 @@ app.include_router(session_router)
 app.include_router(user_router)
 app.include_router(feedback_router)
 app.include_router(quizzes_router)
+app.include_router(checklist_router)
 
 app.add_api_websocket_route("/api/v1/ws/chat/{room_type}/{room_id}", websocket_endpoint)
 
