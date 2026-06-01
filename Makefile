@@ -7,6 +7,9 @@ up:
 down:
 	docker-compose down
 
+run-notification-event:
+	docker exec -it event_backend bash -c "cd /app && python3.11 cli.py 7"
+
 logs:
 	docker-compose logs -f backend
 

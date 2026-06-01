@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Напоминание о мероприятии</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;background:#f4f7fb;">
+    <tr>
+        <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0"
+                   style="background:#ffffff;border-radius:12px;padding:40px;">
+
+                <!-- Заголовок -->
+                <tr>
+                    <td align="center">
+                        <h1 style="margin:0;color:#111827;">
+                            Напоминание о мероприятии
+                        </h1>
+                        <p style="margin-top:12px;color:#6b7280;font-size:16px;">
+                            Уважаемый(ая) {{ speaker_name }}!
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- Основная информация -->
+                <tr>
+                    <td style="padding-top:32px;">
+                        <div style="margin-bottom:20px;">
+                            <strong>Мероприятие:</strong><br>
+                            {{ event_title }}
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <strong>Дата и время:</strong><br>
+                            {{ event_start_date }} — {{ event_end_date }}
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <strong>Место проведения:</strong><br>
+                            {{ event_location }}
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <strong>Контакты организатора:</strong><br>
+                            {{ organizer_email }}
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Блок с информацией о днях -->
+                <tr>
+                    <td style="padding-top:16px;">
+                        <div style="
+                            background:#f0fdf4;
+                            border:1px solid #bbf7d0;
+                            border-radius:8px;
+                            padding:16px;
+                            color:#166534;
+                            text-align:center;
+                        ">
+                            ⏰ Мероприятие начнётся через <strong>{{ days_left }}</strong> дней.
+                            Пожалуйста, подготовьтесь к выступлению.
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Кнопка перехода к мероприятию (опционально) -->
+                <tr>
+                    <td align="center" style="padding-top:32px;">
+                        <a href="{{ event_url }}"
+                           style="
+                                display:inline-block;
+                                background:#2563eb;
+                                color:#ffffff;
+                                text-decoration:none;
+                                padding:14px 28px;
+                                border-radius:8px;
+                                font-weight:bold;
+                           ">
+                            Перейти к мероприятию
+                        </a>
+                    </td>
+                </tr>
+
+                <!-- Футер -->
+                <tr>
+                    <td style="padding-top:40px;color:#9ca3af;font-size:13px;text-align:center;">
+                        Это автоматическое письмо, пожалуйста не отвечайте на него.
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
