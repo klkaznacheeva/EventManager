@@ -1,13 +1,16 @@
 # app/api/v1/event.py
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Query
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from app.core.enum import EventStatus, RoleList, EntityType, AttachmentType
+from app.core.helper import get_role_id_by_name
 from app.core.jwt_dependency import get_required_user, get_current_user
 from app.db.database import get_db
 from app.models import Event, EventParticipant, Role
+from app.models import Session as EventSession
+from app.models.session_participant import SessionParticipant
 from app.models.user import User
 from app.schemas.checklist import ChecklistTaskListResponse
 from app.schemas.coordinator_invite import CoordinatorInviteCreate
@@ -27,6 +30,10 @@ from app.services.event_service import EventService
 from starlette.responses import JSONResponse
 
 from app.services.file_service import FileService
+from app.services.user_service import UserService
+
+from app.models.event_participant import EventParticipant
+from app.schemas.user import UserProfileResponse, UserWithRoleResponse
 
 router = APIRouter(prefix="/api/v1/events", tags=["Events"])
 
@@ -514,3 +521,134 @@ def get_coordinator_events(
         db=db,
         user_id=current_user.id
     )
+
+
+@router.get("/{event_id}/participants", response_model=List[UserWithRoleResponse])
+def get_event_participants(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    # Проверка прав (организатор или координатор мероприятия)
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(404, "Event not found")
+    if event.organizer_id != current_user.id:
+        coord_role_id = get_role_id_by_name(db, RoleList.coordinator)
+        coord = db.query(EventParticipant).filter(
+            EventParticipant.event_id == event_id,
+            EventParticipant.user_id == current_user.id,
+            EventParticipant.role_id == coord_role_id
+        ).first()
+        if not coord:
+            raise HTTPException(403, "Access denied")
+
+    # Получаем всех участников (записи в event_participants)
+    participants = db.query(EventParticipant).filter(EventParticipant.event_id == event_id).all()
+    user_ids = [p.user_id for p in participants]
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    user_map = {u.id: u for u in users}
+
+    # ID ролей
+    coord_role_id = get_role_id_by_name(db, RoleList.coordinator)
+    organizer_role_id = get_role_id_by_name(db, RoleList.organizer)
+
+    # Определяем спикеров (через сессии)
+    sessions = db.query(EventSession).filter(EventSession.event_id == event_id).all()
+    session_ids = [s.id for s in sessions]
+    speaker_ids = set()
+    if session_ids:
+        speakers = db.query(SessionParticipant).filter(
+            SessionParticipant.session_id.in_(session_ids),
+            SessionParticipant.role.has(name=RoleList.speaker.value)
+        ).all()
+        speaker_ids = {sp.user_id for sp in speakers}
+
+    result = []
+    for p in participants:
+        u = user_map.get(p.user_id)
+        if not u:
+            continue
+        is_coord = (p.role_id == coord_role_id)
+        is_organizer = (p.role_id == organizer_role_id)
+        is_speaker = (u.id in speaker_ids)
+
+        avatar = FileService.get_file(db, EntityType.USER, u.id, AttachmentType.AVATAR)
+        avatar_url = f"/{avatar.storage_path}" if avatar else None
+
+        result.append(UserWithRoleResponse(
+            id=u.id,
+            first_name=u.first_name,
+            second_name=u.second_name,
+            last_name=u.last_name,
+            email=u.email,
+            phone=u.phone,
+            birth_date=u.birth_date,
+            is_system=u.is_system,
+            avatar_url=avatar_url,
+            roles=UserService.build_user_roles(db, u.id),
+            is_speaker=is_speaker,
+            is_coordinator=is_coord,
+            is_organizer=is_organizer
+        ))
+    return result
+
+@router.post("/{event_id}/participants/{user_id}/make-organizer")
+def make_organizer(
+    event_id: UUID,
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(404, "Event not found")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(403, "Only main organizer can assign co-organizers")
+
+    coordinator_role_id = get_role_id_by_name(db, RoleList.coordinator)
+    organizer_role_id = get_role_id_by_name(db, RoleList.organizer)
+
+    participant = db.query(EventParticipant).filter(
+        EventParticipant.event_id == event_id,
+        EventParticipant.user_id == user_id
+    ).first()
+    if not participant:
+        raise HTTPException(404, "Participant not found")
+
+    if participant.role_id != coordinator_role_id:
+        raise HTTPException(400, "Only coordinators can be promoted to organizer")
+
+    participant.role_id = organizer_role_id
+    db.commit()
+    return {"detail": "User promoted to co-organizer"}
+
+@router.post("/{event_id}/participants/{user_id}/revoke-organizer")
+def revoke_organizer(
+    event_id: UUID,
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_required_user)
+):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(404, "Event not found")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(403, "Only main organizer can revoke co-organizer rights")
+
+    coordinator_role_id = get_role_id_by_name(db, RoleList.coordinator)
+    organizer_role_id = get_role_id_by_name(db, RoleList.organizer)
+
+    participant = db.query(EventParticipant).filter(
+        EventParticipant.event_id == event_id,
+        EventParticipant.user_id == user_id
+    ).first()
+    if not participant:
+        raise HTTPException(404, "Participant not found")
+
+    if participant.role_id != organizer_role_id:
+        raise HTTPException(400, "User is not an organizer")
+
+    participant.role_id = coordinator_role_id
+    db.commit()
+    return {"detail": "User demoted to coordinator"}

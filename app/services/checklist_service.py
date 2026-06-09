@@ -223,32 +223,32 @@ class ChecklistService:
             "message": "Task completed"
         }
 
-    # =========================================================
-    # DELETE TASK
-    # =========================================================
+        # =========================================================
+        # DELETE TASK
+        # =========================================================
 
-    @staticmethod
-    def delete_task(
-            db: Session,
-            task_id: UUID
-    ):
+        @staticmethod
+        def delete_task(
+                db: Session,
+                task_id: UUID
+        ):
 
-        task = (
-            db.query(ChecklistTask)
-            .filter(ChecklistTask.id == task_id)
-            .first()
-        )
+            task = (
+                db.query(ChecklistTask)
+                .filter(ChecklistTask.id == task_id)
+                .first()
+            )
 
-        if not task:
-            raise ValueError("Task not found")
+            if not task:
+                raise ValueError("Task not found")
 
-        db.delete(task)
+            db.delete(task)
 
-        db.commit()
+            db.commit()
 
-        return {
-            "message": "Task deleted"
-        }
+            return {
+                "message": "Task deleted"
+            }
 
     # =========================================================
     # RESPONSE BUILDER
@@ -342,42 +342,23 @@ class ChecklistService:
         }
 
     @staticmethod
-    def create_coordinator_tasks(
-            db: Session,
-            event_id: UUID,
-            user_id: UUID,
-            tasks: list,
-            current_user_id: UUID
-    ):
-
-        created_tasks = []
-
-        for item in tasks:
-            task = ChecklistTask(
-                entity_type="event",
-                entity_id=event_id,
-
-                title=item.get("title"),
-                description=item.get("description"),
-
-                created_by=current_user_id
-            )
-
-            db.add(task)
-
-            db.flush()
-
-            assignee = ChecklistTaskAssignee(
-                task_id=task.id,
-                user_id=user_id
-            )
-
-            db.add(assignee)
-
-            created_tasks.append(task)
-
+    def create_coordinator_tasks(db, event_id, user_id, tasks, current_user_id):
+        db.query(ChecklistTaskAssignee).filter(ChecklistTaskAssignee.user_id == user_id).delete()
+        assignees = db.query(ChecklistTaskAssignee).filter(ChecklistTaskAssignee.user_id == user_id).all()
+        task_ids = [a.task_id for a in assignees]
+        if task_ids:
+            db.query(ChecklistTask).filter(ChecklistTask.id.in_(task_ids)).delete(synchronize_session=False)
         db.commit()
 
-        return {
-            "items": created_tasks
-        }
+
+        created = []
+        for item in tasks:
+            task = ChecklistTask(entity_type="event", entity_id=event_id, title=item["title"],
+                                 description=item.get("description", ""), created_by=current_user_id)
+            db.add(task)
+            db.flush()
+            assignee = ChecklistTaskAssignee(task_id=task.id, user_id=user_id)
+            db.add(assignee)
+            created.append(task)
+        db.commit()
+        return {"items": created}

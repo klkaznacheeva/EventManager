@@ -7,6 +7,7 @@ from fastapi.responses import PlainTextResponse  # Добавим для отл�
 from sqlalchemy.orm import Session
 
 from app.core.enum import RoleList
+from app.core.helper import get_role_id_by_name
 from app.core.jwt_dependency import get_required_user
 from app.core.templates import render_template
 from app.db.database import get_db
@@ -338,4 +339,30 @@ def session_general_chat_page(
         "request": request,
         "session_id": session_id,
         "event_id": session.event_id
+    })
+
+@router.get("/events/{event_id}/participants", response_class=HTMLResponse)
+def event_participants_page(
+    request: Request,
+    event_id: UUID,
+    current_user: User = Depends(get_required_user),
+    db: Session = Depends(get_db)
+):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(404, "Event not found")
+    if event.organizer_id != current_user.id:
+        coord = db.query(EventParticipant).filter(
+            EventParticipant.event_id == event_id,
+            EventParticipant.user_id == current_user.id,
+            EventParticipant.role_id == get_role_id_by_name(db, RoleList.coordinator)
+        ).first()
+        if not coord:
+            raise HTTPException(403, "Access denied")
+    return render_template("event_participants.html", {
+        "request": request,
+        "event_id": event_id,
+        "event_title": event.title,
+        "is_main_organizer": event.organizer_id == current_user.id,  # ДОБАВИТЬ ЭТУ СТРОКУ
+        "current_user_id": str(current_user.id)                     # И ЭТУ
     })

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -33,3 +33,8 @@ class UserUpdateRequest(BaseModel):
 
 class EmailRequest(BaseModel):
     email: EmailStr
+
+class UserWithRoleResponse(UserProfileResponse):
+    is_speaker: bool = False
+    is_coordinator: bool = False
+    is_organizer: bool = False

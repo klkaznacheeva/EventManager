@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Участники мероприятия: {{ event_title }}</h1>
+        <p class="page-description">
+            Список пользователей, связанных с мероприятием. Главный организатор может назначать координаторов соорганизаторами и отзывать права.
+        </p>
+    </div>
+    <div class="btn-row">
+        <a href="/admin/events/{{ event_id }}" class="btn btn-ghost">Назад к мероприятию</a>
+    </div>
+</div>
+
+<section class="card">
+    <div class="card-body">
+        <div class="filters" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+            <select id="role-filter" class="form-input" style="width: auto;">
+                <option value="">Все участники</option>
+                <option value="organizer">Организаторы (соорганизаторы)</option>
+                <option value="coordinator">Координаторы</option>
+                <option value="speaker">Спикеры</option>
+                <option value="user">Обычные участники</option>
+            </select>
+            <button id="apply-filter" class="btn btn-secondary">Применить</button>
+        </div>
+        <div id="participants-list" class="sessions-list">
+            <div class="loading-state">Загрузка участников...</div>
+        </div>
+    </div>
+</section>
+
+<script>
+    const eventId = "{{ event_id }}";
+    const isMainOrganizer = {{ is_main_organizer|tojson }};
+    const currentUserId = "{{ current_user_id }}";
+    let allParticipants = [];
+    let currentFilter = '';
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    async function loadParticipants() {
+        const token = getCookie('access_token');
+        const container = document.getElementById('participants-list');
+        try {
+            const res = await fetch(`/api/v1/events/${eventId}/participants`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!res.ok) throw new Error('Ошибка загрузки');
+            const users = await res.json();
+            allParticipants = users;
+            renderParticipants();
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+        }
+    }
+
+    function renderParticipants() {
+        const container = document.getElementById('participants-list');
+        let filtered = allParticipants;
+        if (currentFilter === 'organizer') {
+            filtered = allParticipants.filter(p => p.is_organizer === true);
+        } else if (currentFilter === 'coordinator') {
+            filtered = allParticipants.filter(p => p.is_coordinator === true);
+        } else if (currentFilter === 'speaker') {
+            filtered = allParticipants.filter(p => p.is_speaker === true);
+        } else if (currentFilter === 'user') {
+            filtered = allParticipants.filter(p => !p.is_organizer && !p.is_coordinator && !p.is_speaker);
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty-state">Нет участников с выбранной ролью.</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        filtered.forEach(user => {
+            const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || '—';
+            let roleText = '';
+            if (user.is_organizer) roleText = 'Организатор (соорганизатор)';
+            else if (user.is_coordinator) roleText = 'Координатор';
+            else if (user.is_speaker) roleText = 'Спикер';
+            else roleText = 'Участник';
+
+            const div = document.createElement('div');
+            div.className = 'session-card';
+            div.innerHTML = `
+                <div class="session-top">
+                    <div>
+                        <h3 class="session-title">${escapeHtml(fullName)}</h3>
+                        <div class="session-meta">
+                            <span>Email: ${escapeHtml(user.email)}</span>
+                            <span>Телефон: ${escapeHtml(user.phone || '—')}</span>
+                            <span>Роль: ${roleText}</span>
+                        </div>
+                    </div>
+                    <div class="session-actions">
+                        ${isMainOrganizer && user.id !== currentUserId ? `
+                            ${user.is_coordinator && !user.is_organizer ? `
+                                <button class="btn btn-primary btn-sm" onclick="makeOrganizer('${user.id}')">
+                                    Назначить организатором
+                                </button>
+                            ` : ''}
+                            ${user.is_organizer ? `
+                                <button class="btn btn-warning btn-sm" onclick="revokeOrganizer('${user.id}')">
+                                    Отозвать права организатора
+                                </button>
+                            ` : ''}
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    async function makeOrganizer(userId) {
+        const token = getCookie('access_token');
+        const res = await fetch(`/api/v1/events/${eventId}/participants/${userId}/make-organizer`, {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        });
+        if (res.ok) {
+            alert("Пользователь назначен соорганизатором");
+            loadParticipants();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Ошибка");
+        }
+    }
+
+    async function revokeOrganizer(userId) {
+        if (!confirm("Отозвать права организатора у этого пользователя?")) return;
+        const token = getCookie('access_token');
+        const res = await fetch(`/api/v1/events/${eventId}/participants/${userId}/revoke-organizer`, {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        });
+        if (res.ok) {
+            alert("Права организатора отозваны");
+            loadParticipants();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Ошибка");
+        }
+    }
+
+    document.getElementById('apply-filter').addEventListener('click', () => {
+        currentFilter = document.getElementById('role-filter').value;
+        renderParticipants();
+    });
+
+    loadParticipants();
+</script>
+
+<style>
+    .btn-warning { background-color: #ed8936; color: white; }
+    .session-meta span { margin-right: 16px; }
+</style>
+{% endblock %}

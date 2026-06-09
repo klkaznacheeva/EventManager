@@ -255,14 +255,21 @@ class EventService:
             if not user_id:
                 query = query.filter(False)
             else:
+                # Получаем ID мероприятий, где пользователь является координатором
                 coordinator_event_ids = db.query(EventParticipant.event_id).filter(
                     EventParticipant.user_id == user_id,
                     EventParticipant.role_id == get_role_id_by_name(db, RoleList.coordinator)
                 ).subquery()
+                # Получаем ID мероприятий, где пользователь является соорганизатором
+                organizer_event_ids = db.query(EventParticipant.event_id).filter(
+                    EventParticipant.user_id == user_id,
+                    EventParticipant.role_id == get_role_id_by_name(db, RoleList.organizer)
+                ).subquery()
                 query = query.filter(
                     or_(
                         Event.organizer_id == user_id,
-                        Event.id.in_(coordinator_event_ids)
+                        Event.id.in_(coordinator_event_ids),
+                        Event.id.in_(organizer_event_ids)
                     )
                 )
 
